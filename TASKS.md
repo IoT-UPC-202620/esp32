@@ -32,17 +32,17 @@
 - Paso actual: Step 3 — Commit y merge a develop
 - Archivos tocados: src/config/NodeConfig.h, src/actuators/OledDisplay.h, src/actuators/OledDisplay.cpp, src/telemetry/NodeMessages.cpp, src/devices/EdifikaNode.h, src/devices/EdifikaNode.cpp, TASKS.md
 - Tests: `bash test/run_tests.sh` → 24 passed, 0 failed
-- Último commit: 424d461 feat(devices): pure door presentation state machine for decision, mode and LED (H6)
+- Último commit: 449fe23 feat(node): gateway-driven access, door roles, RGB status and periodic readings (H6)
 - Métricas: 24 host tests en verde; 9 comandos del contrato despachados con ack OK/FAILED
 - Bloqueos / notas: —
 
-## Task 5 — Broker del repo, prueba con Mosquitto y documentación   [ ] pendiente
+## Task 5 — Broker del repo, prueba con Mosquitto y documentación   [x] hecha
 - Rama: feature/H6-broker-and-docs
-- Paso actual: —
-- Archivos tocados: —
-- Tests: —
-- Último commit: —
-- Métricas: —
+- Paso actual: Step 3 — Commit y merge a develop
+- Archivos tocados: broker/send-command.sh, broker/README.md, README.md, TASKS.md
+- Tests: `grep -oE '"type":"[a-z_]+"' broker/send-command.sh | sort -u` → 9 tipos de comandos verificados; `bash test/run_tests.sh` → 24 passed, 0 failed
+- Último commit: 449fe23 feat(node): gateway-driven access, door roles, RGB status and periodic readings (H6)
+- Métricas: 9 comandos documentados y ejemplificados con mosquitto_pub
 - Bloqueos / notas: —
 
 ## Task 6 — Compilación de la placa y release   [ ] pendiente
