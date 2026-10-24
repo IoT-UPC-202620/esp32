@@ -5,6 +5,7 @@
 
 #include "CommandParser.h"
 #include <ctype.h>
+#include <stdio.h>
 
 namespace {
 
@@ -213,3 +214,7 @@ NodeCommand parse(const uint8_t* payload, size_t length) {
 }
 
 } // namespace CommandParser
+
+void CommandParser::formatHexColor(const RgbColor& color, char* destination) {
+    snprintf(destination, 8, "#%02X%02X%02X", color.red, color.green, color.blue);
+}

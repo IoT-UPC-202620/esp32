@@ -2,6 +2,13 @@
 
 All notable changes to the Edifika ESP32 firmware are documented in this file.
 
+## [v0.5.0] - 2026-10-24 (H6)
+
+### Added
+- Heartbeats report the door `mode` and the LED `color` (null outside RESERVED) so the edge gateway can re-send the latest configuration when the node is stale.
+- A heartbeat is sent as soon as a new MQTT session starts (boot or reconnection), spaced at least `MIN_HEARTBEAT_GAP_IN_MILLISECONDS`.
+- `CommandParser::formatHexColor` and `DoorPresentation::reservedLedColor`, with host tests (28 in total).
+
 ## [v0.4.0] - 2026-10-24 (H6)
 
 ### Changed

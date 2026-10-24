@@ -96,3 +96,14 @@ TEST(long_message_is_truncated_to_64_chars) {
     ASSERT_TRUE(c.type == NodeCommandType::Display);
     ASSERT_EQ(64u, std::strlen(c.message));
 }
+
+TEST(format_hex_color_round_trips_with_parse) {
+    char text[8];
+    CommandParser::formatHexColor(RgbColor{0, 255, 136}, text);
+    ASSERT_STREQ("#00FF88", text);
+    RgbColor parsed{};
+    ASSERT_TRUE(CommandParser::parseHexColor(text, parsed));
+    ASSERT_EQ(0, parsed.red);
+    ASSERT_EQ(255, parsed.green);
+    ASSERT_EQ(136, parsed.blue);
+}

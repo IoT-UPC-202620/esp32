@@ -25,6 +25,7 @@ EdifikaNode::EdifikaNode()
       lockOpenedTimestamp(0),
       lockOpenDurationInMilliseconds(LOCK_OPEN_DURATION_IN_MILLISECONDS),
       lastHeartbeatTimestamp(0),
+      brokerSessionWasActive(false),
       lastReadingsTimestamp(0),
       lastRenderTimestamp(0),
       temporaryMessageTimestamp(0),
@@ -249,11 +250,27 @@ void EdifikaNode::processRemoteCommands() {
 }
 
 void EdifikaNode::updateHeartbeat() {
-    if (!edgeGateway.isSessionActive()) return;   // the first one goes out as soon as the broker is reachable
+    bool sessionActive = edgeGateway.isSessionActive();
+    bool sessionJustStarted = sessionActive && !brokerSessionWasActive;
+    brokerSessionWasActive = sessionActive;
+    if (!sessionActive) return;
+
+    // A new broker session (boot or reconnection) reports its state at once, so the
+    // gateway can re-send the latest door mode without waiting for the next period
+    // isSessionActive() also reads false while the session mutex is busy, so an early
+    // heartbeat is still spaced by MIN_HEARTBEAT_GAP_IN_MILLISECONDS
     unsigned long now = millis();
-    if (lastHeartbeatTimestamp != 0 && now - lastHeartbeatTimestamp < HEARTBEAT_INTERVAL_IN_MILLISECONDS) return;
+    unsigned long sinceLast = now - lastHeartbeatTimestamp;
+    bool dueByPeriod = lastHeartbeatTimestamp == 0 || sinceLast >= HEARTBEAT_INTERVAL_IN_MILLISECONDS;
+    bool dueBySession = sessionJustStarted && sinceLast >= MIN_HEARTBEAT_GAP_IN_MILLISECONDS;
+    if (!dueByPeriod && !dueBySession) return;
     lastHeartbeatTimestamp = now;
-    enqueueNodeMessage(new HeartbeatMessage(DEVICE_ID, FIRMWARE_VERSION));
+
+    bool reserved = doorPresentation.mode() == DoorMode::Reserved;
+    char ledColor[8] = "";
+    if (reserved) CommandParser::formatHexColor(doorPresentation.reservedLedColor(), ledColor);
+    enqueueNodeMessage(new HeartbeatMessage(DEVICE_ID, FIRMWARE_VERSION,
+                                            reserved ? "RESERVED" : "FREE_ACCESS", ledColor));
 }
 
 void EdifikaNode::updateReadings() {

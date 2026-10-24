@@ -64,7 +64,7 @@ El nodo se conecta por Wi-Fi al broker MQTT (Mosquitto) del Edge Gateway y cumpl
 
 | Sentido | Tópico | Cuándo | Payload / Contenido |
 |---|---|---|---|
-| Nodo → Edge | `edifika/v1/nodes/{deviceId}/heartbeat` | Al conectar y luego **cada 10 s** | `{"v":"1","ts":"…","deviceId":"esp32-acc-01","fw":"v0.3.0"}` |
+| Nodo → Edge | `edifika/v1/nodes/{deviceId}/heartbeat` | Al iniciar cada sesión MQTT (arranque o reconexión) y luego **cada 10 s** | `{"v":"1","ts":"…","deviceId":"esp32-acc-01","fw":"v0.5.0","mode":"RESERVED","color":"#800080"}`. `mode`/`color` informan lo que muestra la puerta; si el gateway ve una diferencia con la configuración vigente reenvía `mode` (resincronización tras reinicio o reconexión) |
 | Nodo → Edge | `edifika/v1/nodes/{deviceId}/access` | Cada tarjeta leída | `{"v":"1","ts":"…","credentialType":"RFID","credential":"04A1B2C3"}` |
 | Nodo → Edge | `edifika/v1/nodes/{deviceId}/readings` | **Cada 10 s** con el último valor válido | `{"v":"1","ts":"…","sensor":"temperature","value":24.5,"unit":"°C"}` |
 | Nodo → Edge | `edifika/v1/nodes/{deviceId}/ack` | Respuesta obligatoria a cada comando con `commandId` | `{"v":"1","ts":"…","commandId":"…","status":"OK","detail":""}` (o `FAILED`) |
@@ -201,6 +201,7 @@ ocupa ~76 % de la partición por defecto; si crece, elegir el esquema de partici
 - Las lecturas de telemetría de temperatura y humedad se publican periódicamente cada 10 s con el último valor válido en vez de dispararse en cada muestra del sensor DHT.
 - La unidad de temperatura es `"°C"` conforme al contrato v1.
 - El intervalo de heartbeat se redujo a 10 s para una rápida detección de desconexión por parte del Edge Gateway (timeout a 30 s).
+- El heartbeat informa el modo y el color que muestra la puerta, y se envía de inmediato al iniciar una sesión MQTT. Así el gateway resincroniza en segundos un nodo que se reinició o se reconectó, aunque nunca haya llegado a marcarse OFFLINE.
 - La apertura ya no es autónoma (`UNLOCK_ON_ANY_CARD = false`): la autorización la realiza el Edge Gateway centralmente, con fallback local a los 5 s (`Gateway no disponible`) si el gateway no responde.
 - Todos los comandos recibidos responden por el canal `ack` con estado `"OK"` o `"FAILED"`.
 - Soporte para los 9 comandos remotos del contrato v1.
