@@ -5,17 +5,17 @@
 - Paso actual: Step 3 — Commit y merge a develop
 - Archivos tocados: .gitignore, README.md, test/vendor/ArduinoJson.h, test/minitest.h, test/test_main.cpp, test/run_tests.sh, TASKS.md
 - Tests: `bash test/run_tests.sh` → 1 passed, 0 failed
-- Último commit: c9f54b2 chore: converted
+- Último commit: 4b59220 test: add host-side test harness with vendored ArduinoJson (H6)
 - Métricas: 1 host test en verde
 - Bloqueos / notas: —
 
-## Task 2 — CommandParser: todos los comandos del contrato   [ ] pendiente
+## Task 2 — CommandParser: todos los comandos del contrato   [x] hecha
 - Rama: feature/H6-command-parser
-- Paso actual: —
-- Archivos tocados: —
-- Tests: —
-- Último commit: —
-- Métricas: —
+- Paso actual: Step 5 — Commit y merge a develop
+- Archivos tocados: src/gateway/CommandParser.h, src/gateway/CommandParser.cpp, src/gateway/EdgeMqttGatewayClient.h, src/gateway/EdgeMqttGatewayClient.cpp, test/test_command_parser.cpp, TASKS.md
+- Tests: `bash test/run_tests.sh` → 13 passed, 0 failed
+- Último commit: 4b59220 test: add host-side test harness with vendored ArduinoJson (H6)
+- Métricas: 13 host tests en verde (12 de CommandParser)
 - Bloqueos / notas: —
 
 ## Task 3 — DoorPresentation: decisión, modo y LED como máquina de estados pura   [ ] pendiente
