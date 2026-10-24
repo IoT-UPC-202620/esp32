@@ -31,8 +31,10 @@ private:
     bool ready; ///< `true` when the controller answered during initialization.
 
     static constexpr size_t TEXT_BUFFER_SIZE = 32; ///< Capacity of each staged text field.
+    static constexpr size_t HEADLINE_BUFFER_SIZE = 65; ///< Capacity for headline text.
 
     char bufferedMessage[TEXT_BUFFER_SIZE]; ///< Text for the message screen.
+    char bufferedHeadline[HEADLINE_BUFFER_SIZE]; ///< Text for the headline screen.
     float bufferedTemperatureInCelsius; ///< Temperature for the dashboard screen.
     float bufferedRelativeHumidityInPercentage; ///< Humidity for the dashboard screen.
     bool climateAvailable; ///< `false` until the first climate reading is staged.
@@ -41,6 +43,7 @@ private:
     char bufferedCardType[TEXT_BUFFER_SIZE]; ///< PICC type shown on the card screen.
 
     void renderMessageScreen(); ///< Draws the centered message screen.
+    void renderHeadlineScreen(); ///< Draws the status headline screen.
     void renderDashboardScreen(); ///< Draws temperature, humidity and last card.
     void renderCardScreen(); ///< Draws the detected card UID and type.
 
@@ -56,11 +59,13 @@ public:
     static constexpr int SHOW_DASHBOARD_COMMAND_IDENTIFIER = 321;
     static constexpr int SHOW_CARD_COMMAND_IDENTIFIER = 322;
     static constexpr int CLEAR_COMMAND_IDENTIFIER = 323;
+    static constexpr int SHOW_HEADLINE_COMMAND_IDENTIFIER = 324;
 
     static constexpr Command SHOW_MESSAGE_COMMAND{SHOW_MESSAGE_COMMAND_IDENTIFIER};
     static constexpr Command SHOW_DASHBOARD_COMMAND{SHOW_DASHBOARD_COMMAND_IDENTIFIER};
     static constexpr Command SHOW_CARD_COMMAND{SHOW_CARD_COMMAND_IDENTIFIER};
     static constexpr Command CLEAR_COMMAND{CLEAR_COMMAND_IDENTIFIER};
+    static constexpr Command SHOW_HEADLINE_COMMAND{SHOW_HEADLINE_COMMAND_IDENTIFIER};
 
     /**
      * @brief Constructs the display and initializes the SSD1306 controller.
@@ -74,6 +79,8 @@ public:
 
     /** @brief Stages the text shown by `SHOW_MESSAGE_COMMAND`. */
     void setMessage(const char* nullTerminatedString);
+    /** @brief Stages the text shown by `SHOW_HEADLINE_COMMAND`. */
+    void setHeadline(const char* nullTerminatedString);
     /** @brief Stages the climate values shown by `SHOW_DASHBOARD_COMMAND`. */
     void setClimate(float temperatureInCelsius, float relativeHumidityInPercentage);
     /** @brief Stages the last card UID shown by `SHOW_DASHBOARD_COMMAND`. */

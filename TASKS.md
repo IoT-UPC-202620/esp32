@@ -23,17 +23,17 @@
 - Paso actual: Step 5 — Commit y merge a develop
 - Archivos tocados: src/devices/DoorPresentation.h, src/devices/DoorPresentation.cpp, test/test_door_presentation.cpp, TASKS.md
 - Tests: `bash test/run_tests.sh` → 24 passed, 0 failed
-- Último commit: c743499 feat(gateway): parse every v1 command into a typed NodeCommand (H6)
+- Último commit: 424d461 feat(devices): pure door presentation state machine for decision, mode and LED (H6)
 - Métricas: 24 host tests en verde (11 de DoorPresentation)
 - Bloqueos / notas: —
 
-## Task 4 — EdifikaNode conectado al contrato   [ ] pendiente
+## Task 4 — EdifikaNode conectado al contrato   [x] hecha
 - Rama: feature/H6-node-contract
-- Paso actual: —
-- Archivos tocados: —
-- Tests: —
-- Último commit: —
-- Métricas: —
+- Paso actual: Step 3 — Commit y merge a develop
+- Archivos tocados: src/config/NodeConfig.h, src/actuators/OledDisplay.h, src/actuators/OledDisplay.cpp, src/telemetry/NodeMessages.cpp, src/devices/EdifikaNode.h, src/devices/EdifikaNode.cpp, TASKS.md
+- Tests: `bash test/run_tests.sh` → 24 passed, 0 failed
+- Último commit: 424d461 feat(devices): pure door presentation state machine for decision, mode and LED (H6)
+- Métricas: 24 host tests en verde; 9 comandos del contrato despachados con ack OK/FAILED
 - Bloqueos / notas: —
 
 ## Task 5 — Broker del repo, prueba con Mosquitto y documentación   [ ] pendiente

@@ -19,6 +19,7 @@
 #include "../gateway/EdgeMqttGatewayClient.h"
 #include "../telemetry/NodeMessages.h"
 #include "../config/NodeConfig.h"
+#include "DoorPresentation.h"
 
 /**
  * @brief ESP32 node: RFID access with an electric lock, DHT11 climate, OLED, buzzer,
@@ -28,14 +29,14 @@
  * Sensors are polled by the `Device` round-robin scheduler and propagate their events to
  * this device, which reacts by issuing commands to the actuators. The device also registers
  * itself in the scheduler with `DEVICE_TICK_EVENT` to run the time-based behaviours
- * (lock auto-relock, RGB gradient, matrix rows and display refresh) without blocking.
+ * (lock auto-relock, presentation tick, matrix rows and display refresh) without blocking.
  */
 class EdifikaNode : public Device {
 private:
     // Declaration order is construction order: the relay goes first so the lock stays closed at boot.
     Relay doorLockRelay; ///< Electric lock relay (contacts COM/NO).
     Buzzer buzzer; ///< Passive buzzer for audible feedback.
-    RgbLed statusRgbLed; ///< Status RGB LED running a red-green-blue gradient.
+    RgbLed statusRgbLed; ///< Status RGB LED driven by DoorPresentation.
     Led matrixRowLeds[NodeConfig::MATRIX_ROW_COUNT]; ///< One NPN-switched row of the 3x3 matrix each.
     DhtSensor climateSensor; ///< DHT11 temperature and humidity sensor.
     RfidReader accessCardReader; ///< RC522 access card reader.
@@ -45,27 +46,31 @@ private:
     // processQueuedTelemetryData() is const in Device, but publishing mutates the client.
     mutable EdgeMqttGatewayClient edgeGateway; ///< MQTT link with the Edge Gateway.
 
+    DoorPresentation doorPresentation; ///< Pure state machine for decision, mode and LED.
+
     unsigned long lockOpenedTimestamp; ///< When the lock was last energized.
     unsigned long lockOpenDurationInMilliseconds; ///< How long the current opening lasts.
     unsigned long lastHeartbeatTimestamp; ///< When the last heartbeat was queued.
-    unsigned long cardScreenTimestamp; ///< When the card screen was last shown.
+    unsigned long lastReadingsTimestamp; ///< When periodic readings were last queued.
     unsigned long lastRenderTimestamp; ///< When the display was last refreshed.
-    bool cardScreenVisible; ///< `true` while the detected card screen is shown.
+    unsigned long temporaryMessageTimestamp; ///< When a display/alert message was started.
+    bool temporaryMessageActive; ///< `true` while a display/alert message is active.
+    char temporaryMessageText[65]; ///< Content of the display/alert message.
     bool climateAvailable; ///< `false` until the first DHT reading arrives.
-    int lastRgbPhase; ///< Last gradient phase written (0 red, 255 green, 510 blue).
 
     void onCardDetected();
     void onClimateRead();
     void onDeviceTick();
 
-    void unlockDoor();
+    void unlockDoor(unsigned long durationInMilliseconds = 0);
     void beep(unsigned long durationInMilliseconds);
+    void playBuzzerPattern(BuzzerPattern pattern);
     void updateDoorLock();
-    void updateRgbGradient();
     void updateMatrixRows();
-    void updateDisplay();
+    void updateDisplay(const PresentationFrame& frame);
     void processRemoteCommands();
     void updateHeartbeat();
+    void updateReadings();
 
     /**
      * @brief Hands a message to the Device telemetry queue (deleted if the queue is full).

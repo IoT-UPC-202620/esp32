@@ -5,6 +5,7 @@
 
 #include "NodeMessages.h"
 #include <time.h>
+#include <string.h>
 
 // ---------------- NodeMessage ----------------
 void NodeMessage::serializeEnvelope(JsonDocument& serializationDestination) {
@@ -49,7 +50,11 @@ const char* AccessAttemptMessage::getChannel() const { return "access"; }
 
 // ---------------- SensorReadingMessage ----------------
 SensorReadingMessage::SensorReadingMessage(const char* sensor, float measuredValue, const char* measureUnit)
-    : sensorName(sensor), value(measuredValue), unit(measureUnit) {}
+    : sensorName(sensor), value(measuredValue), unit(measureUnit) {
+    if (measureUnit != nullptr && strcmp(measureUnit, "C") == 0) {
+        unit = "°C";
+    }
+}
 
 void SensorReadingMessage::serialize(JsonDocument& serializationDestination) const {
     serializeEnvelope(serializationDestination);
