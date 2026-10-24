@@ -9,6 +9,7 @@
 
 #include "../ModestIoT/GatewayClient.h"
 #include "../telemetry/NodeMessages.h"
+#include "CommandParser.h"
 #include <PubSubClient.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
@@ -19,15 +20,6 @@
  * @ingroup gateway_module
  * @{
  */
-
-/**
- * @brief Command received on `edifika/v1/nodes/{deviceId}/commands`, already parsed.
- */
-struct RemoteCommand {
-    char commandId[40]; ///< `commandId`, echoed back in the ack.
-    char type[24]; ///< `type`, e.g. `"unlock"`.
-    uint32_t durationInMilliseconds; ///< `params.duration_ms`, or 0 when absent.
-};
 
 /**
  * @brief Bidirectional MQTT gateway for the node.
@@ -51,7 +43,7 @@ private:
 
     static constexpr size_t TOPIC_BUFFER_SIZE = 96; ///< Capacity of a composed topic.
     static constexpr uint16_t PACKET_BUFFER_SIZE = 512; ///< MQTT packet buffer.
-    static constexpr uint8_t REMOTE_COMMAND_QUEUE_LENGTH = 4; ///< Pending commands capacity.
+    static constexpr uint8_t REMOTE_COMMAND_QUEUE_LENGTH = 8; ///< Pending commands capacity.
     static constexpr unsigned long RECONNECT_INTERVAL_IN_MILLISECONDS = 5000; ///< Back-off.
     static constexpr TickType_t MUTEX_TIMEOUT_TICKS = pdMS_TO_TICKS(1000); ///< Publish wait.
 
@@ -96,7 +88,7 @@ public:
      * @param destination Filled when a command is available.
      * @return `true` if a command was popped.
      */
-    bool receiveRemoteCommand(RemoteCommand& destination);
+    bool receiveRemoteCommand(NodeCommand& destination);
 
     /** @brief Reports whether the broker session is currently established. */
     [[nodiscard]] bool isSessionActive();

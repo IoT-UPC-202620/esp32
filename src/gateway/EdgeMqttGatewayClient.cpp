@@ -16,7 +16,7 @@ EdgeMqttGatewayClient::EdgeMqttGatewayClient(ConnectivityDriver& transportDriver
       mqttClient(networkClient),
       clientIdentifier(deviceId),
       sessionMutex(xSemaphoreCreateMutex()),
-      remoteCommandQueue(xQueueCreate(REMOTE_COMMAND_QUEUE_LENGTH, sizeof(RemoteCommand))),
+      remoteCommandQueue(xQueueCreate(REMOTE_COMMAND_QUEUE_LENGTH, sizeof(NodeCommand))),
       lastConnectionAttemptTimestamp(0),
       commandsTopic("")
 {
@@ -95,23 +95,13 @@ bool EdgeMqttGatewayClient::publishOnChannel(const char* channel, const Telemetr
 void EdgeMqttGatewayClient::onIncomingMessage(const char* topic, const uint8_t* payload, unsigned int length) {
     if (strcmp(topic, commandsTopic) != 0) return;
 
-    JsonDocument commandDocument;
-    if (deserializeJson(commandDocument, payload, length) != DeserializationError::Ok) {
-        Serial.printf("Comando descartado: JSON invalido en %s\n", topic);
-        return;
-    }
-
-    RemoteCommand remoteCommand{};
-    snprintf(remoteCommand.commandId, sizeof(remoteCommand.commandId), "%s", commandDocument["commandId"] | "");
-    snprintf(remoteCommand.type, sizeof(remoteCommand.type), "%s", commandDocument["type"] | "");
-    remoteCommand.durationInMilliseconds = commandDocument["params"]["duration_ms"] | 0u;
-
+    NodeCommand remoteCommand = CommandParser::parse(payload, length);
     if (xQueueSend(remoteCommandQueue, &remoteCommand, 0) != pdPASS) {
         Serial.println("Comando descartado: cola llena");
     }
 }
 
-bool EdgeMqttGatewayClient::receiveRemoteCommand(RemoteCommand& destination) {
+bool EdgeMqttGatewayClient::receiveRemoteCommand(NodeCommand& destination) {
     return xQueueReceive(remoteCommandQueue, &destination, 0) == pdPASS;
 }
 
