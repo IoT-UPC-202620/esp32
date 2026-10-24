@@ -2,6 +2,11 @@
 
 All notable changes to the Edifika ESP32 firmware are documented in this file.
 
+## [Unreleased]
+
+### Changed
+- The RGB LED is only lit while the door is `RESERVED`; in every other state (free access, after an access decision, maintenance, no broker session, boot) it stays off. The OLED and buzzer carry the feedback.
+
 ## [v0.3.0] - 2026-10-24 (H6)
 
 ### Added

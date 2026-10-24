@@ -62,3 +62,11 @@
 - Último commit: —
 - Métricas: 7 escenarios de aceptación documentados
 - Bloqueos / notas: Requiere placa física ESP32 y credenciales reales; reservada para Jonatan.
+
+## Task 8 — RGB LED only lit in RESERVED (change requested by Jonatan, 2026-10-24)   [x] hecha
+- Rama: feature/H6-led-off-outside-reserved
+- Paso actual: merged into develop; released as v0.4.0
+- Archivos tocados: src/devices/DoorPresentation.h/.cpp, src/devices/EdifikaNode.cpp, test/test_door_presentation.cpp, README.md, CHANGELOG.md
+- Tests: `bash test/run_tests.sh` → 26 passed, 0 failed; `arduino-cli compile -b esp32:esp32:esp32` → exit 0 (77 % flash)
+- Hardware (COM5): uploaded; LED off in FREE_ACCESS; `PUT /led` returns 409 outside RESERVED; magenta `#FF0080` applied during a reservation (command OK)
+- Notas: outside RESERVED the LED is off with no exceptions (no green/red decision flash, no amber maintenance, no red without broker); in RESERVED it keeps the reservation colour even without broker, and turns off in maintenance.
