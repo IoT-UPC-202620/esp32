@@ -13,6 +13,7 @@ OledDisplay::OledDisplay(uint8_t i2cAddress, uint8_t widthInPixels, uint8_t heig
       screenWidth(widthInPixels),
       ready(false),
       bufferedMessage(""),
+      bufferedHeadline(""),
       bufferedTemperatureInCelsius(0.0f),
       bufferedRelativeHumidityInPercentage(0.0f),
       climateAvailable(false),
@@ -34,6 +35,9 @@ void OledDisplay::executeCommand(Command command) {
     if (command == SHOW_MESSAGE_COMMAND) {
         renderMessageScreen();
     }
+    else if (command == SHOW_HEADLINE_COMMAND) {
+        renderHeadlineScreen();
+    }
     else if (command == SHOW_DASHBOARD_COMMAND) {
         renderDashboardScreen();
     }
@@ -51,6 +55,14 @@ void OledDisplay::renderMessageScreen() {
     physicalOledScreen.setTextSize(1);
     physicalOledScreen.setCursor(0, 28);
     physicalOledScreen.print(bufferedMessage);
+    physicalOledScreen.display();
+}
+
+void OledDisplay::renderHeadlineScreen() {
+    physicalOledScreen.clearDisplay();
+    physicalOledScreen.setTextSize(1);
+    physicalOledScreen.setCursor(0, 28);
+    physicalOledScreen.print(bufferedHeadline);
     physicalOledScreen.display();
 }
 
@@ -118,6 +130,11 @@ void OledDisplay::renderCardScreen() {
 void OledDisplay::setMessage(const char* nullTerminatedString) {
     if (nullTerminatedString == nullptr) return;
     snprintf(bufferedMessage, TEXT_BUFFER_SIZE, "%s", nullTerminatedString);
+}
+
+void OledDisplay::setHeadline(const char* nullTerminatedString) {
+    if (nullTerminatedString == nullptr) return;
+    snprintf(bufferedHeadline, HEADLINE_BUFFER_SIZE, "%s", nullTerminatedString);
 }
 
 void OledDisplay::setClimate(float temperatureInCelsius, float relativeHumidityInPercentage) {

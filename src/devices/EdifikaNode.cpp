@@ -6,6 +6,7 @@
 #include "EdifikaNode.h"
 #include "../config/Secrets.h"
 #include <time.h>
+#include <sys/time.h>
 
 using namespace NodeConfig;
 
@@ -20,15 +21,17 @@ EdifikaNode::EdifikaNode()
       statusDisplay(OLED_I2C_ADDRESS, OLED_WIDTH, OLED_HEIGHT),
       wifiDriver(Secrets::WIFI_SSID, Secrets::WIFI_PASSWORD),
       edgeGateway(wifiDriver, wifiDriver.getNetworkSocket(), Secrets::MQTT_BROKER_HOST, Secrets::MQTT_BROKER_PORT, DEVICE_ID),
+      doorPresentation(ACCESS_RESULT_TIMEOUT_IN_MILLISECONDS, DECISION_FEEDBACK_IN_MILLISECONDS),
       lockOpenedTimestamp(0),
       lockOpenDurationInMilliseconds(LOCK_OPEN_DURATION_IN_MILLISECONDS),
       lastHeartbeatTimestamp(0),
-      cardScreenTimestamp(0),
+      lastReadingsTimestamp(0),
       lastRenderTimestamp(0),
-      cardScreenVisible(false),
-      climateAvailable(false),
-      lastRgbPhase(-1)
+      temporaryMessageTimestamp(0),
+      temporaryMessageActive(false),
+      climateAvailable(false)
 {
+    temporaryMessageText[0] = '\0';
 }
 
 void EdifikaNode::begin() {
@@ -107,19 +110,20 @@ void EdifikaNode::enqueueNodeMessage(NodeMessage* nodeMessage) const {
 void EdifikaNode::onCardDetected() {
     Serial.printf("Tarjeta: %s  (%s)\n", accessCardReader.getUid(), accessCardReader.getCardType());
 
-    beep(BEEP_DURATION_IN_MILLISECONDS);
+    if (!doorPresentation.onCardRead(millis())) {
+        return;
+    }
+
+    beep(150);
     enqueueNodeMessage(new AccessAttemptMessage(accessCardReader.getCompactUid()));
     if (UNLOCK_ON_ANY_CARD) {
-        lockOpenDurationInMilliseconds = LOCK_OPEN_DURATION_IN_MILLISECONDS;
-        handle(UNLOCK_DOOR_COMMAND);
+        unlockDoor(LOCK_OPEN_DURATION_IN_MILLISECONDS);
     }
 
     statusDisplay.setLastCardUid(accessCardReader.getCompactUid());
     statusDisplay.setDetectedCard(accessCardReader.getUid(), accessCardReader.getCardType());
-    cardScreenVisible = true;
-    cardScreenTimestamp = millis();
-    lastRenderTimestamp = cardScreenTimestamp;
-    statusDisplay.handle(OledDisplay::SHOW_CARD_COMMAND);
+    statusDisplay.setHeadline("Validando...");
+    statusDisplay.handle(OledDisplay::SHOW_HEADLINE_COMMAND);
 }
 
 void EdifikaNode::onClimateRead() {
@@ -128,35 +132,115 @@ void EdifikaNode::onClimateRead() {
     float humidity = climateSensor.getRelativeHumidityInPercentage();
     statusDisplay.setClimate(temperature, humidity);
     Serial.printf("T=%.1f C  H=%.0f %%\n", temperature, humidity);
-
-    enqueueNodeMessage(new SensorReadingMessage("temperature", temperature, "C"));
-    enqueueNodeMessage(new SensorReadingMessage("humidity", humidity, "%"));
 }
 
 void EdifikaNode::onDeviceTick() {
+    doorPresentation.onBrokerSession(edgeGateway.isSessionActive());
     processRemoteCommands();
     updateHeartbeat();
+    updateReadings();
     updateDoorLock();
-    updateRgbGradient();
+
+    PresentationFrame frame = doorPresentation.tick(millis());
+
+    statusRgbLed.setColor(frame.ledColor.red, frame.ledColor.green, frame.ledColor.blue);
+    statusRgbLed.handle(RgbLed::APPLY_COLOR_COMMAND);
+
+    if (frame.lockShouldOpen) {
+        unlockDoor(frame.lockDurationInMilliseconds > 0 ? frame.lockDurationInMilliseconds : LOCK_OPEN_DURATION_IN_MILLISECONDS);
+    }
+
+    if (frame.beep) {
+        playBuzzerPattern(frame.beepPattern);
+    }
+
     updateMatrixRows();
-    updateDisplay();
+    updateDisplay(frame);
 }
 
 // ---------------- network ----------------
 // Commands arrive on the loop task and are executed here, on the hardware worker,
 // so actuators are only ever touched from one task
 void EdifikaNode::processRemoteCommands() {
-    RemoteCommand remoteCommand;
-    while (edgeGateway.receiveRemoteCommand(remoteCommand)) {
-        Serial.printf("Comando %s (%s)\n", remoteCommand.type, remoteCommand.commandId);
+    NodeCommand cmd;
+    while (edgeGateway.receiveRemoteCommand(cmd)) {
+        bool hasCommandId = (cmd.commandId[0] != '\0');
+        const char* ackStatus = "OK";
+        const char* ackDetail = "";
 
-        if (strcmp(remoteCommand.type, "unlock") == 0) {
-            lockOpenDurationInMilliseconds = remoteCommand.durationInMilliseconds > 0
-                ? remoteCommand.durationInMilliseconds : LOCK_OPEN_DURATION_IN_MILLISECONDS;
-            handle(UNLOCK_DOOR_COMMAND);
-            enqueueNodeMessage(new CommandAckMessage(remoteCommand.commandId, "OK"));
-        } else {
-            enqueueNodeMessage(new CommandAckMessage(remoteCommand.commandId, "ERROR", "tipo no soportado"));
+        switch (cmd.type) {
+            case NodeCommandType::AccessResult:
+                doorPresentation.onAccessResult(cmd, millis());
+                break;
+
+            case NodeCommandType::Mode:
+                doorPresentation.onMode(cmd.mode, cmd.hasColor, cmd.color);
+                break;
+
+            case NodeCommandType::Rgb:
+                if (!doorPresentation.onRgb(cmd.color)) {
+                    ackStatus = "FAILED";
+                    ackDetail = "not reserved";
+                }
+                break;
+
+            case NodeCommandType::Maintenance:
+                doorPresentation.onMaintenance(cmd.active, cmd.message);
+                break;
+
+            case NodeCommandType::Unlock:
+                unlockDoor(cmd.durationInMilliseconds > 0 ? cmd.durationInMilliseconds : LOCK_OPEN_DURATION_IN_MILLISECONDS);
+                break;
+
+            case NodeCommandType::Display:
+                strncpy(temporaryMessageText, cmd.message, sizeof(temporaryMessageText) - 1);
+                temporaryMessageText[sizeof(temporaryMessageText) - 1] = '\0';
+                temporaryMessageTimestamp = millis();
+                temporaryMessageActive = true;
+                statusDisplay.setMessage(temporaryMessageText);
+                statusDisplay.handle(OledDisplay::SHOW_MESSAGE_COMMAND);
+                break;
+
+            case NodeCommandType::Alert:
+                if (cmd.message[0] != '\0') {
+                    strncpy(temporaryMessageText, cmd.message, sizeof(temporaryMessageText) - 1);
+                    temporaryMessageText[sizeof(temporaryMessageText) - 1] = '\0';
+                    temporaryMessageTimestamp = millis();
+                    temporaryMessageActive = true;
+                    statusDisplay.setMessage(temporaryMessageText);
+                    statusDisplay.handle(OledDisplay::SHOW_MESSAGE_COMMAND);
+                }
+                if (cmd.active) {
+                    playBuzzerPattern(cmd.buzzerPattern);
+                }
+                break;
+
+            case NodeCommandType::Buzzer:
+                playBuzzerPattern(cmd.buzzerPattern);
+                break;
+
+            case NodeCommandType::TimeSync:
+                if (cmd.epochSeconds > 0) {
+                    struct timeval tv;
+                    tv.tv_sec = static_cast<time_t>(cmd.epochSeconds);
+                    tv.tv_usec = 0;
+                    settimeofday(&tv, nullptr);
+                }
+                break;
+
+            case NodeCommandType::Unsupported:
+                ackStatus = "FAILED";
+                ackDetail = "unsupported command";
+                break;
+
+            case NodeCommandType::Invalid:
+                ackStatus = "FAILED";
+                ackDetail = cmd.error;
+                break;
+        }
+
+        if (hasCommandId) {
+            enqueueNodeMessage(new CommandAckMessage(cmd.commandId, ackStatus, ackDetail));
         }
     }
 }
@@ -169,9 +253,21 @@ void EdifikaNode::updateHeartbeat() {
     enqueueNodeMessage(new HeartbeatMessage(DEVICE_ID, FIRMWARE_VERSION));
 }
 
+void EdifikaNode::updateReadings() {
+    if (!climateAvailable || !edgeGateway.isSessionActive()) return;
+    unsigned long now = millis();
+    if (lastReadingsTimestamp != 0 && now - lastReadingsTimestamp < READINGS_INTERVAL_IN_MILLISECONDS) return;
+    lastReadingsTimestamp = now;
+    float temperature = climateSensor.getTemperatureInCelsius();
+    float humidity = climateSensor.getRelativeHumidityInPercentage();
+    enqueueNodeMessage(new SensorReadingMessage("temperature", temperature, "°C"));
+    enqueueNodeMessage(new SensorReadingMessage("humidity", humidity, "%"));
+}
+
 // ---------------- lock ----------------
 // Energizes the lock lockOpenDurationInMilliseconds without blocking the rest of the node
-void EdifikaNode::unlockDoor() {
+void EdifikaNode::unlockDoor(unsigned long durationInMilliseconds) {
+    lockOpenDurationInMilliseconds = durationInMilliseconds > 0 ? durationInMilliseconds : LOCK_OPEN_DURATION_IN_MILLISECONDS;
     lockOpenedTimestamp = millis();
     doorLockRelay.handle(Relay::ENERGIZE_COMMAND);
     Serial.println("Cerradura abierta");
@@ -192,18 +288,25 @@ void EdifikaNode::beep(unsigned long durationInMilliseconds) {
     buzzer.handle(Buzzer::PLAY_TONE_COMMAND);
 }
 
-// ---------------- rgb led ----------------
-// Red -> yellow -> green -> cyan -> blue and back, one phase step every RGB_STEP_IN_MILLISECONDS
-void EdifikaNode::updateRgbGradient() {
-    constexpr unsigned long PHASE_PEAK = 510;
-    unsigned long cycleStep = (millis() / RGB_STEP_IN_MILLISECONDS) % (2 * PHASE_PEAK);
-    int phase = static_cast<int>(cycleStep <= PHASE_PEAK ? cycleStep : 2 * PHASE_PEAK - cycleStep);
-    if (phase == lastRgbPhase) return;
-    lastRgbPhase = phase;
-
-    if (phase <= 255) statusRgbLed.setColor(255 - phase, phase, 0);          // red -> green
-    else              statusRgbLed.setColor(0, 510 - phase, phase - 255);    // green -> blue
-    statusRgbLed.handle(RgbLed::APPLY_COLOR_COMMAND);
+void EdifikaNode::playBuzzerPattern(BuzzerPattern pattern) {
+    switch (pattern) {
+        case BuzzerPattern::Granted:
+            beep(150);
+            break;
+        case BuzzerPattern::Denied:
+            beep(150);
+            delay(200);
+            beep(150);
+            break;
+        case BuzzerPattern::Alert:
+            for (int i = 0; i < 3; ++i) {
+                beep(300);
+                delay(350);
+            }
+            break;
+        case BuzzerPattern::Off:
+            break;
+    }
 }
 
 // ---------------- 3x3 matrix ----------------
@@ -223,14 +326,26 @@ void EdifikaNode::switchLed(Led& led, bool turnOn) {
 }
 
 // ---------------- display ----------------
-void EdifikaNode::updateDisplay() {
+void EdifikaNode::updateDisplay(const PresentationFrame& frame) {
     unsigned long now = millis();
-    if (cardScreenVisible && now - cardScreenTimestamp >= CARD_SCREEN_DURATION_IN_MILLISECONDS) {
-        cardScreenVisible = false;
+    if (temporaryMessageActive && now - temporaryMessageTimestamp >= 3000) {
+        temporaryMessageActive = false;
+    }
+
+    if (temporaryMessageActive) {
+        statusDisplay.setMessage(temporaryMessageText);
+        statusDisplay.handle(OledDisplay::SHOW_MESSAGE_COMMAND);
+        return;
+    }
+
+    if (frame.headline != nullptr) {
+        statusDisplay.setHeadline(frame.headline);
+        statusDisplay.handle(OledDisplay::SHOW_HEADLINE_COMMAND);
+        return;
     }
 
     if (now - lastRenderTimestamp >= DISPLAY_REFRESH_IN_MILLISECONDS) {
         lastRenderTimestamp = now;
-        statusDisplay.handle(cardScreenVisible ? OledDisplay::SHOW_CARD_COMMAND : OledDisplay::SHOW_DASHBOARD_COMMAND);
+        statusDisplay.handle(OledDisplay::SHOW_DASHBOARD_COMMAND);
     }
 }
