@@ -24,7 +24,8 @@ enum class DoorPhase : uint8_t {
  * @brief Snapshot of the instantaneous presentation state for actuators.
  */
 struct PresentationFrame {
-    RgbColor ledColor;
+    bool ledOn;          // false: the RGB LED must be off (only RESERVED lights it)
+    RgbColor ledColor;   // meaningful only when ledOn
     const char* headline;
     bool lockShouldOpen;
     uint32_t lockDurationInMilliseconds;

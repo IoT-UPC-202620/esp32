@@ -27,21 +27,19 @@ TEST(card_then_granted_opens_and_shows_green_for_2s_in_free_access) {
     ASSERT_EQ(5000u, frame1.lockDurationInMilliseconds);
     ASSERT_TRUE(frame1.beep);
     ASSERT_TRUE(frame1.beepPattern == BuzzerPattern::Granted);
-    RgbColor green{0, 255, 0};
-    ASSERT_TRUE(frame1.ledColor == green);
+    ASSERT_FALSE(frame1.ledOn);
     ASSERT_STREQ("Acceso concedido", frame1.headline);
 
     // One-shot flags cleared
     auto frame2 = dp.tick(1200);
     ASSERT_FALSE(frame2.lockShouldOpen);
     ASSERT_FALSE(frame2.beep);
-    ASSERT_TRUE(frame2.ledColor == green);
+    ASSERT_FALSE(frame2.ledOn);
 
     // After 2000 ms from 1100, i.e. at 3100
     auto frame3 = dp.tick(3100);
     ASSERT_TRUE(dp.phase() == DoorPhase::Idle);
-    RgbColor white{255, 255, 255};
-    ASSERT_TRUE(frame3.ledColor == white);
+    ASSERT_FALSE(frame3.ledOn);
     ASSERT_TRUE(frame3.headline == nullptr);
 }
 
@@ -67,8 +65,7 @@ TEST(no_result_in_5s_denies_with_gateway_unavailable) {
     ASSERT_FALSE(frame.lockShouldOpen);
     ASSERT_TRUE(frame.beep);
     ASSERT_TRUE(frame.beepPattern == BuzzerPattern::Denied);
-    RgbColor red{255, 0, 0};
-    ASSERT_TRUE(frame.ledColor == red);
+    ASSERT_FALSE(frame.ledOn);
     ASSERT_STREQ("Gateway no disponible", frame.headline);
 }
 
@@ -123,7 +120,7 @@ TEST(rgb_in_reserved_updates_color) {
     ASSERT_TRUE(frame.ledColor == newColor);
 }
 
-TEST(back_to_free_access_returns_to_white_status) {
+TEST(back_to_free_access_turns_led_off) {
     DoorPresentation dp(5000, 2000);
     dp.onBrokerSession(true);
 
@@ -133,12 +130,11 @@ TEST(back_to_free_access_returns_to_white_status) {
 
     ASSERT_TRUE(dp.mode() == DoorMode::FreeAccess);
     auto frame = dp.tick(1000);
-    RgbColor white{255, 255, 255};
-    ASSERT_TRUE(frame.ledColor == white);
+    ASSERT_FALSE(frame.ledOn);
     ASSERT_TRUE(frame.headline == nullptr);
 }
 
-TEST(maintenance_ignores_cards_and_shows_amber) {
+TEST(maintenance_ignores_cards_and_keeps_led_off) {
     DoorPresentation dp(5000, 2000);
     dp.onBrokerSession(true);
 
@@ -147,29 +143,25 @@ TEST(maintenance_ignores_cards_and_shows_amber) {
     ASSERT_FALSE(dp.onCardRead(1000));
 
     auto frame = dp.tick(1000);
-    RgbColor amber{255, 128, 0};
-    ASSERT_TRUE(frame.ledColor == amber);
+    ASSERT_FALSE(frame.ledOn);
     ASSERT_STREQ("Under maintenance", frame.headline);
 
     dp.onMaintenance(false, "");
     ASSERT_TRUE(dp.phase() == DoorPhase::Idle);
     auto frameAfter = dp.tick(2000);
-    RgbColor white{255, 255, 255};
-    ASSERT_TRUE(frameAfter.ledColor == white);
+    ASSERT_FALSE(frameAfter.ledOn);
 }
 
-TEST(no_broker_session_shows_solid_red) {
+TEST(no_broker_session_outside_reserved_keeps_led_off) {
     DoorPresentation dp(5000, 2000);
     dp.onBrokerSession(false);
 
     auto frame1 = dp.tick(1000);
-    RgbColor red{255, 0, 0};
-    ASSERT_TRUE(frame1.ledColor == red);
+    ASSERT_FALSE(frame1.ledOn);
 
     dp.onBrokerSession(true);
     auto frame2 = dp.tick(1000);
-    RgbColor white{255, 255, 255};
-    ASSERT_TRUE(frame2.ledColor == white);
+    ASSERT_FALSE(frame2.ledOn);
 }
 
 TEST(denied_in_reserved_keeps_fixed_color_but_beeps_denied) {
@@ -195,4 +187,26 @@ TEST(denied_in_reserved_keeps_fixed_color_but_beeps_denied) {
     ASSERT_TRUE(frame.beep);
     ASSERT_TRUE(frame.beepPattern == BuzzerPattern::Denied);
     ASSERT_STREQ("Acceso denegado", frame.headline);
+}
+
+TEST(reserved_without_broker_keeps_fixed_color_on) {
+    DoorPresentation dp(5000, 2000);
+    RgbColor teal{0, 255, 136};
+    dp.onMode(DoorMode::Reserved, true, teal);
+    dp.onBrokerSession(false);   // the edge keeps enforcing the reservation offline
+
+    auto frame = dp.tick(1000);
+    ASSERT_TRUE(frame.ledOn);
+    ASSERT_TRUE(frame.ledColor == teal);
+}
+
+TEST(reserved_in_maintenance_turns_led_off) {
+    DoorPresentation dp(5000, 2000);
+    dp.onBrokerSession(true);
+    RgbColor teal{0, 255, 136};
+    dp.onMode(DoorMode::Reserved, true, teal);
+    dp.onMaintenance(true, "Mantenimiento");
+
+    auto frame = dp.tick(1000);
+    ASSERT_FALSE(frame.ledOn);
 }
