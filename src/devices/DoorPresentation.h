@@ -7,7 +7,7 @@
  * @ingroup devices_module
  */
 
-#include "gateway/CommandParser.h"
+#include "../gateway/CommandParser.h"
 #include <stdint.h>
 
 /**

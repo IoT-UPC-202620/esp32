@@ -41,24 +41,24 @@
 - Paso actual: Step 3 — Commit y merge a develop
 - Archivos tocados: broker/send-command.sh, broker/README.md, README.md, TASKS.md
 - Tests: `grep -oE '"type":"[a-z_]+"' broker/send-command.sh | sort -u` → 9 tipos de comandos verificados; `bash test/run_tests.sh` → 24 passed, 0 failed
-- Último commit: 449fe23 feat(node): gateway-driven access, door roles, RGB status and periodic readings (H6)
+- Último commit: 3696f96 docs: document the v1 contract behaviour, node registration and command examples (H6)
 - Métricas: 9 comandos documentados y ejemplificados con mosquitto_pub
 - Bloqueos / notas: —
 
-## Task 6 — Compilación de la placa y release   [ ] pendiente
+## Task 6 — Compilación de la placa y release   [x] hecha
 - Rama: release/0.3.0
-- Paso actual: —
-- Archivos tocados: —
-- Tests: —
-- Último commit: —
-- Métricas: —
-- Bloqueos / notas: —
+- Paso actual: Step 3 — Merge a main y develop, y tag v0.3.0
+- Archivos tocados: src/devices/DoorPresentation.h, src/config/NodeConfig.h, CHANGELOG.md, TASKS.md
+- Tests: `arduino-cli compile -b esp32:esp32:esp32 .` → exit 0 (Flash: 1,013,484 B / 77%, RAM: 51,308 B / 15%); `bash test/run_tests.sh` → 24 passed, 0 failed
+- Último commit: 3696f96 docs: document the v1 contract behaviour, node registration and command examples (H6)
+- Métricas: Compilación de placa verificada con éxito en ESP32 Dev Module (core 3.3.12); 24 host tests en verde
+- Bloqueos / notas: Permiso de instalación concedido por Jonatan ejecutado con éxito.
 
 ## Task 7 — Checklist de aceptación manual con hardware   [!] bloqueada
 - Rama: release/0.3.0
-- Paso actual: —
-- Archivos tocados: —
-- Tests: —
+- Paso actual: Documentada en README.md ("Checklist de aceptación manual"), pendiente de ejecución por Jonatan
+- Archivos tocados: README.md
+- Tests: Pendiente de prueba con hardware físico y stack de integración
 - Último commit: —
-- Métricas: —
-- Bloqueos / notas: Requiere placa física y credenciales reales; reservada para Jonatan.
+- Métricas: 7 escenarios de aceptación documentados
+- Bloqueos / notas: Requiere placa física ESP32 y credenciales reales; reservada para Jonatan.
