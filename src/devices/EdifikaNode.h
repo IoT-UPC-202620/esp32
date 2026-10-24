@@ -15,6 +15,9 @@
 #include "../actuators/Relay.h"
 #include "../actuators/RgbLed.h"
 #include "../actuators/OledDisplay.h"
+#include "../connectivity/WiFiStationDriver.h"
+#include "../gateway/EdgeMqttGatewayClient.h"
+#include "../telemetry/NodeMessages.h"
 #include "../config/NodeConfig.h"
 
 /**
@@ -38,7 +41,13 @@ private:
     RfidReader accessCardReader; ///< RC522 access card reader.
     OledDisplay statusDisplay; ///< SSD1306 status display.
 
+    WiFiStationDriver wifiDriver; ///< Wi-Fi link (ModestIoT `WiFiConnectivityDriver`).
+    // processQueuedTelemetryData() is const in Device, but publishing mutates the client.
+    mutable EdgeMqttGatewayClient edgeGateway; ///< MQTT link with the Edge Gateway.
+
     unsigned long lockOpenedTimestamp; ///< When the lock was last energized.
+    unsigned long lockOpenDurationInMilliseconds; ///< How long the current opening lasts.
+    unsigned long lastHeartbeatTimestamp; ///< When the last heartbeat was queued.
     unsigned long cardScreenTimestamp; ///< When the card screen was last shown.
     unsigned long lastRenderTimestamp; ///< When the display was last refreshed.
     bool cardScreenVisible; ///< `true` while the detected card screen is shown.
@@ -55,6 +64,13 @@ private:
     void updateRgbGradient();
     void updateMatrixRows();
     void updateDisplay();
+    void processRemoteCommands();
+    void updateHeartbeat();
+
+    /**
+     * @brief Hands a message to the Device telemetry queue (deleted if the queue is full).
+     */
+    void enqueueNodeMessage(NodeMessage* nodeMessage) const;
 
     /**
      * @brief Sends TURN_ON/TURN_OFF to an LED only when its state must change.
@@ -80,8 +96,20 @@ public:
      */
     void begin();
 
+    /**
+     * @brief Keeps Wi-Fi and the MQTT session alive. Call it from `loop()`.
+     */
+    void maintainNetwork();
+
     void on(Event event) override;
     void handle(Command command) override;
+
+protected:
+    /**
+     * @brief Publishes queued messages on the NetworkWorker task.
+     * Only `NodeMessage` instances are ever enqueued by this device.
+     */
+    void processQueuedTelemetryData(const TelemetryPackage* rawQueueItemPayload) const override;
 };
 
 #endif // EDIFIKA_NODE_H

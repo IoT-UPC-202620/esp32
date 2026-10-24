@@ -65,6 +65,17 @@ constexpr unsigned long SPLASH_DURATION_IN_MILLISECONDS = 1500;
 // con 3 slots (RFID, reloj del nodo, DHT) cada uno se atiende cada 30 ms.
 constexpr unsigned long SAMPLING_INTERVAL_IN_MILLISECONDS = 10;
 
+// ---------------- Red (Wi-Fi + MQTT con el Edge Gateway) ----------------
+// Credenciales y broker en Secrets.h. Topicos: edifika/v1/nodes/{DEVICE_ID}/{canal}
+constexpr const char* DEVICE_ID = "esp32-acc-01";
+constexpr const char* FIRMWARE_VERSION = "v0.2.0";
+constexpr unsigned long HEARTBEAT_INTERVAL_IN_MILLISECONDS = 30000;
+constexpr const char* NTP_SERVER = "pool.ntp.org";   // hora UTC para el campo "ts"
+
+// true: cualquier tarjeta abre en el acto (modo prueba). false: solo abre cuando el
+// Edge Gateway responde con el comando "unlock" tras validar la tarjeta.
+constexpr bool UNLOCK_ON_ANY_CARD = true;
+
 } // namespace NodeConfig
 
 #endif // NODE_CONFIG_H

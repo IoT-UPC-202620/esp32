@@ -11,7 +11,11 @@ firmware/
 ├── firmware.ino                 # setup(): construye EdifikaNode y arranca el motor asíncrono
 └── src/
     ├── ModestIoT/               # Framework copiado sin modificaciones
-    ├── config/NodeConfig.h      # Pines y parámetros (umbrales, tiempos, polaridades)
+    ├── config/NodeConfig.h      # Pines y parámetros (umbrales, tiempos, polaridades, red)
+    ├── config/Secrets.example.h # Plantilla de Wi-Fi y broker; copiar como Secrets.h (ignorado por git)
+    ├── connectivity/WiFiStationDriver.*   # Wi-Fi          -> WiFiConnectivityDriver
+    ├── gateway/EdgeMqttGatewayClient.*    # MQTT con Edge  -> GatewayClient
+    ├── telemetry/NodeMessages.*           # Mensajes JSON  -> TelemetryPackage
     ├── sensors/RfidReader.*     # RC522            -> Sensor
     ├── actuators/Relay.*        # Relé cerradura   -> Actuator
     ├── actuators/RgbLed.*       # LED RGB (PWM)    -> Actuator
@@ -51,13 +55,62 @@ Al leer una tarjeta, el nodo pita, ejecuta `UNLOCK_DOOR_COMMAND` (400), que tamb
 afuera más adelante, y muestra la tarjeta 3 s en la OLED. El `loop()` se elimina: todo corre en las tareas
 FreeRTOS de `Device`.
 
+## Conexión a internet (Wi-Fi + MQTT)
+
+El nodo se conecta por Wi-Fi al broker MQTT (Mosquitto) del Edge Gateway y sigue el contrato v1 del informe:
+
+| Sentido | Tópico | Cuándo |
+|---|---|---|
+| Nodo → Edge | `edifika/v1/nodes/{deviceId}/heartbeat` | Al conectar con el broker y luego cada 30 s |
+| Nodo → Edge | `edifika/v1/nodes/{deviceId}/access` | Cada tarjeta leída (`credentialType: RFID`, UID compacto) |
+| Nodo → Edge | `edifika/v1/nodes/{deviceId}/readings` | Cuando cambia el DHT11 (`temperature` en C y `humidity` en %) |
+| Nodo → Edge | `edifika/v1/nodes/{deviceId}/ack` | Respuesta a cada comando (`OK` / `ERROR`) |
+| Edge → Nodo | `edifika/v1/nodes/{deviceId}/commands` | `type: "unlock"` con `params.duration_ms` opcional |
+
+Todos los mensajes llevan `"v":"1"` y `ts` en ISO-8601 UTC sincronizado por NTP; mientras el reloj no está
+sincronizado se envía `ts: null` en vez de una hora inventada.
+
+Qué se usa de ModestIoT y qué se extendió:
+
+- `WiFiConnectivityDriver` deja `transmit()` sin implementar (la clase es abstracta), así que
+  `WiFiStationDriver` lo hereda tal cual y solo completa `transmit()` (envío TCP puntual a `"host:port"`).
+- `MqttGatewayClient` publica en un único tópico fijo y no se suscribe, así que `EdgeMqttGatewayClient`
+  extiende `GatewayClient` para publicar cada mensaje en su canal y recibir `/commands`.
+- Los mensajes son `TelemetryPackage` y viajan por la cola de telemetría de `Device`: se encolan en la tarea
+  de hardware y se publican en `processQueuedTelemetryData()` (tarea NetworkWorker).
+- `loop()` mantiene la sesión (`maintainNetwork()`, reintento cada 5 s). Los comandos recibidos pasan por una
+  cola FreeRTOS y se ejecutan en el tick del nodo, así los actuadores solo se tocan desde una tarea.
+
+Configuración:
+
+1. `cp src/config/Secrets.example.h src/config/Secrets.h` y completar SSID, contraseña e IP del broker.
+2. En `NodeConfig.h`: `DEVICE_ID`, y `UNLOCK_ON_ANY_CARD`. Con `true` (modo prueba) cualquier tarjeta abre;
+   con `false` la cerradura solo abre cuando el Edge valida la tarjeta y responde `unlock`.
+
+### Broker local (Mosquitto en Docker)
+
+`broker/` levanta la imagen oficial `eclipse-mosquitto:2` en el puerto 1883, sin usuarios ni TLS (solo para la
+red de desarrollo). En `Secrets.h`, `MQTT_BROKER_HOST` debe ser la IP de la máquina que corre Docker.
+
+```bash
+cd broker && docker compose up -d     # levantar
+docker logs -f edifika-mqtt-logger    # datos del nodo (tambien en Docker Desktop, contenedor edifika-mqtt-logger)
+./broker/watch.sh                     # lo mismo, en una terminal interactiva
+./broker/watch.sh readings            # solo un canal
+docker logs -f edifika-mosquitto      # solo conexiones / desconexiones (Mosquitto no registra el contenido)
+
+# mandar un comando al nodo (abre la cerradura 5 s y responde en /ack)
+docker exec edifika-mosquitto mosquitto_pub -t edifika/v1/nodes/esp32-acc-01/commands \
+  -m '{"v":"1","commandId":"cmd-001","type":"unlock","params":{"duration_ms":5000}}'
+```
+
 ## Compilar
 
 Placa **ESP32 Dev Module**, core **esp32 3.x** (ModestIoT usa la API de timers de 3.x).
 
-Librerías: `ArduinoJson`, `DHT sensor library`, `Adafruit Unified Sensor`, `Adafruit SSD1306`, `Adafruit GFX Library`,
-`MFRC522`. Como el IDE compila todo `src/`, ModestIoT completo también pide `LiquidCrystal I2C`, `ESP32Servo`,
-`HX711` y `PubSubClient`, aunque este nodo no los use.
+Librerías: `ArduinoJson`, `PubSubClient`, `DHT sensor library`, `Adafruit Unified Sensor`, `Adafruit SSD1306`, `Adafruit GFX Library`,
+`MFRC522`. Como el IDE compila todo `src/`, ModestIoT completo también pide `LiquidCrystal I2C`, `ESP32Servo`
+y `HX711`, aunque este nodo no los use.
 
 ```bash
 arduino-cli lib install ArduinoJson "DHT sensor library" "Adafruit Unified Sensor" "Adafruit SSD1306" \
@@ -66,7 +119,8 @@ arduino-cli compile -b esp32:esp32:esp32 .
 arduino-cli upload  -b esp32:esp32:esp32 -p <puerto> .
 ```
 
-En Arduino IDE basta con abrir `firmware.ino`.
+En Arduino IDE basta con abrir `firmware.ino` (después de crear `src/config/Secrets.h`). Con Wi-Fi el binario
+ocupa ~76 % de la partición por defecto; si crece, elegir el esquema de partición *Huge APP*.
 
 ## Diferencias con `edifika_test.ino`
 

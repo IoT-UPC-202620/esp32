@@ -4,6 +4,8 @@
  */
 
 #include "EdifikaNode.h"
+#include "../config/Secrets.h"
+#include <time.h>
 
 using namespace NodeConfig;
 
@@ -16,7 +18,11 @@ EdifikaNode::EdifikaNode()
       climateSensor(DHT_PIN, DHT_MODEL, this),
       accessCardReader(RFID_SS_PIN, RFID_RESET_PIN, RFID_SCK_PIN, RFID_MISO_PIN, RFID_MOSI_PIN, this),
       statusDisplay(OLED_I2C_ADDRESS, OLED_WIDTH, OLED_HEIGHT),
+      wifiDriver(Secrets::WIFI_SSID, Secrets::WIFI_PASSWORD),
+      edgeGateway(wifiDriver, wifiDriver.getNetworkSocket(), Secrets::MQTT_BROKER_HOST, Secrets::MQTT_BROKER_PORT, DEVICE_ID),
       lockOpenedTimestamp(0),
+      lockOpenDurationInMilliseconds(LOCK_OPEN_DURATION_IN_MILLISECONDS),
+      lastHeartbeatTimestamp(0),
       cardScreenTimestamp(0),
       lastRenderTimestamp(0),
       cardScreenVisible(false),
@@ -45,6 +51,10 @@ void EdifikaNode::begin() {
     }
     statusDisplay.setMessage("Iniciando...");
     statusDisplay.handle(OledDisplay::SHOW_MESSAGE_COMMAND);
+
+    Serial.printf("Conectando a Wi-Fi \"%s\"...\n", Secrets::WIFI_SSID);
+    wifiDriver.connect();                 // asynchronous; maintainNetwork() follows it up
+    configTime(0, 0, NTP_SERVER);         // UTC clock for the "ts" field once Wi-Fi is up
     delay(SPLASH_DURATION_IN_MILLISECONDS);
 
     appendSensorToScheduler(&accessCardReader, Sensor::MEASURE_DATA_REQUESTED_EVENT_IDENTIFIER);
@@ -75,12 +85,34 @@ void EdifikaNode::handle(Command command) {
     }
 }
 
+void EdifikaNode::maintainNetwork() {
+    edgeGateway.maintainSession();
+}
+
+void EdifikaNode::processQueuedTelemetryData(const TelemetryPackage* rawQueueItemPayload) const {
+    const auto* nodeMessage = static_cast<const NodeMessage*>(rawQueueItemPayload);
+    if (!edgeGateway.publish(*nodeMessage)) {
+        Serial.printf("Sin publicar (%s): sin conexion con el broker\n", nodeMessage->getChannel());
+    }
+}
+
+void EdifikaNode::enqueueNodeMessage(NodeMessage* nodeMessage) const {
+    TelemetryPackage* telemetryPackage = nodeMessage;
+    if (!enqueueTelemetryPayload(&telemetryPackage)) {
+        delete telemetryPackage;   // queue full: the network worker is behind, drop it
+    }
+}
+
 // ---------------- event reactions ----------------
 void EdifikaNode::onCardDetected() {
     Serial.printf("Tarjeta: %s  (%s)\n", accessCardReader.getUid(), accessCardReader.getCardType());
 
     beep(BEEP_DURATION_IN_MILLISECONDS);
-    handle(UNLOCK_DOOR_COMMAND);       // for now any card opens the lock
+    enqueueNodeMessage(new AccessAttemptMessage(accessCardReader.getCompactUid()));
+    if (UNLOCK_ON_ANY_CARD) {
+        lockOpenDurationInMilliseconds = LOCK_OPEN_DURATION_IN_MILLISECONDS;
+        handle(UNLOCK_DOOR_COMMAND);
+    }
 
     statusDisplay.setLastCardUid(accessCardReader.getCompactUid());
     statusDisplay.setDetectedCard(accessCardReader.getUid(), accessCardReader.getCardType());
@@ -96,17 +128,49 @@ void EdifikaNode::onClimateRead() {
     float humidity = climateSensor.getRelativeHumidityInPercentage();
     statusDisplay.setClimate(temperature, humidity);
     Serial.printf("T=%.1f C  H=%.0f %%\n", temperature, humidity);
+
+    enqueueNodeMessage(new SensorReadingMessage("temperature", temperature, "C"));
+    enqueueNodeMessage(new SensorReadingMessage("humidity", humidity, "%"));
 }
 
 void EdifikaNode::onDeviceTick() {
+    processRemoteCommands();
+    updateHeartbeat();
     updateDoorLock();
     updateRgbGradient();
     updateMatrixRows();
     updateDisplay();
 }
 
+// ---------------- network ----------------
+// Commands arrive on the loop task and are executed here, on the hardware worker,
+// so actuators are only ever touched from one task
+void EdifikaNode::processRemoteCommands() {
+    RemoteCommand remoteCommand;
+    while (edgeGateway.receiveRemoteCommand(remoteCommand)) {
+        Serial.printf("Comando %s (%s)\n", remoteCommand.type, remoteCommand.commandId);
+
+        if (strcmp(remoteCommand.type, "unlock") == 0) {
+            lockOpenDurationInMilliseconds = remoteCommand.durationInMilliseconds > 0
+                ? remoteCommand.durationInMilliseconds : LOCK_OPEN_DURATION_IN_MILLISECONDS;
+            handle(UNLOCK_DOOR_COMMAND);
+            enqueueNodeMessage(new CommandAckMessage(remoteCommand.commandId, "OK"));
+        } else {
+            enqueueNodeMessage(new CommandAckMessage(remoteCommand.commandId, "ERROR", "tipo no soportado"));
+        }
+    }
+}
+
+void EdifikaNode::updateHeartbeat() {
+    if (!edgeGateway.isSessionActive()) return;   // the first one goes out as soon as the broker is reachable
+    unsigned long now = millis();
+    if (lastHeartbeatTimestamp != 0 && now - lastHeartbeatTimestamp < HEARTBEAT_INTERVAL_IN_MILLISECONDS) return;
+    lastHeartbeatTimestamp = now;
+    enqueueNodeMessage(new HeartbeatMessage(DEVICE_ID, FIRMWARE_VERSION));
+}
+
 // ---------------- lock ----------------
-// Energizes the lock LOCK_OPEN_DURATION_IN_MILLISECONDS without blocking the rest of the node
+// Energizes the lock lockOpenDurationInMilliseconds without blocking the rest of the node
 void EdifikaNode::unlockDoor() {
     lockOpenedTimestamp = millis();
     doorLockRelay.handle(Relay::ENERGIZE_COMMAND);
@@ -114,7 +178,7 @@ void EdifikaNode::unlockDoor() {
 }
 
 void EdifikaNode::updateDoorLock() {
-    if (doorLockRelay.isEnergized() && millis() - lockOpenedTimestamp >= LOCK_OPEN_DURATION_IN_MILLISECONDS) {
+    if (doorLockRelay.isEnergized() && millis() - lockOpenedTimestamp >= lockOpenDurationInMilliseconds) {
         doorLockRelay.handle(Relay::RELEASE_COMMAND);
         Serial.println("Cerradura cerrada");
     }
