@@ -1,0 +1,292 @@
+---
+title: Edifika - Circuito del nodo ESP32 (firmware/). Etiquetas +3V3 / +5V / GND con el mismo nombre son la misma red
+config:
+  layout: elk
+  elk:
+    mergeEdges: false
+    nodePlacementStrategy: NETWORK_SIMPLEX
+  flowchart:
+    curve: linear
+---
+flowchart LR
+  subgraph ESP["ESP32 DevKit (ESP32 Dev Module)"]
+    direction TB
+    E3V3["3V3"]
+    E5V["5V / VIN"]
+    EGND["GND"]
+    E4["GPIO4"]
+    E5["GPIO5 (SS)"]
+    E18["GPIO18 (SCK)"]
+    E19["GPIO19 (MISO)"]
+    E23["GPIO23 (MOSI)"]
+    E27["GPIO27 (RST)"]
+    E21["GPIO21 (SDA)"]
+    E22["GPIO22 (SCL)"]
+    E25["GPIO25 (tono)"]
+    E26["GPIO26 (rele)"]
+    E13["GPIO13 (PWM R)"]
+    E14["GPIO14 (PWM G)"]
+    E15["GPIO15 (PWM B)"]
+    E16["GPIO16 (fila 1)"]
+    E17["GPIO17 (fila 2)"]
+    E2["GPIO2 (fila 3)"]
+  end
+  subgraph ESPPWR["Salidas de alimentacion del ESP32"]
+    direction TB
+    N0(["+3V3"])
+    N1(["+5V"])
+    N2[/"GND"\]
+  end
+  subgraph DHT["DHT11 (modulo 3 pines)"]
+    DVCC["VCC"]
+    DDAT["DATA"]
+    DGND["GND"]
+    N3(["+3V3"])
+    N4[/"GND"\]
+  end
+  subgraph RFID["Lector RFID RC522 (SPI)"]
+    RF33V["3.3V"]
+    RFRST["RST"]
+    RFGND["GND"]
+    RFMISO["MISO"]
+    RFMOSI["MOSI"]
+    RFSCK["SCK"]
+    RFSDA["SDA (SS)"]
+    N5(["+3V3"])
+    N6[/"GND"\]
+  end
+  subgraph OLED["OLED SSD1306 128x64 (I2C 0x3C)"]
+    OVCC["VCC"]
+    OGND["GND"]
+    OSCL["SCL"]
+    OSDA["SDA"]
+    N7(["+3V3"])
+    N8[/"GND"\]
+  end
+  subgraph BZ["Buzzer pasivo"]
+    BZP["+"]
+    BZN["-"]
+    N9[/"GND"\]
+  end
+  subgraph RLY["Modulo rele SRD-05VDC-SL-C (canal 1, activo en LOW)"]
+    RYVCC["VCC"]
+    RYGND["GND"]
+    RYIN["IN1"]
+    RYCOM["COM"]
+    RYNO["NO"]
+    RYNC["NC (libre)"]
+    N10(["+5V"])
+    N11[/"GND"\]
+  end
+  subgraph LOCK["Cerradura electrica 12 V (fuente externa)"]
+    PSUP(["Fuente 12 V +"])
+    PSUN(["Fuente 12 V -"])
+    LKP["Cerradura +"]
+    LKN["Cerradura -"]
+    DK["1N4007 catodo"]
+    DA["1N4007 anodo"]
+  end
+  subgraph RGB["LED RGB 4 patas (anodo comun)"]
+    RGBA["Pata larga (anodo)"]
+    RGBR["R"]
+    RGBG["G"]
+    RGBB["B"]
+    RR["220 ohm (R)"]
+    RG["220 ohm (G)"]
+    RB["220 ohm (B)"]
+    N12(["+3V3"])
+  end
+  subgraph M1["Malla 3x3 - fila 1"]
+    M1RB["1k (base)"]
+    M1QB["Q1 NPN - base"]
+    M1QC["Q1 NPN - colector"]
+    M1QE["Q1 NPN - emisor"]
+    M1R1["220 ohm L11"]
+    M1L1["LED rojo L11"]
+    M1R2["220 ohm L12"]
+    M1L2["LED rojo L12"]
+    M1R3["220 ohm L13"]
+    M1L3["LED rojo L13"]
+    N13[/"GND"\]
+    N14(["+5V"])
+    N15(["+5V"])
+    N16(["+5V"])
+  end
+  subgraph M2["Malla 3x3 - fila 2"]
+    M2RB["1k (base)"]
+    M2QB["Q2 NPN - base"]
+    M2QC["Q2 NPN - colector"]
+    M2QE["Q2 NPN - emisor"]
+    M2R1["220 ohm L21"]
+    M2L1["LED rojo L21"]
+    M2R2["220 ohm L22"]
+    M2L2["LED rojo L22"]
+    M2R3["220 ohm L23"]
+    M2L3["LED rojo L23"]
+    N17[/"GND"\]
+    N18(["+5V"])
+    N19(["+5V"])
+    N20(["+5V"])
+  end
+  subgraph M3["Malla 3x3 - fila 3"]
+    M3RB["1k (base)"]
+    M3QB["Q3 NPN - base"]
+    M3QC["Q3 NPN - colector"]
+    M3QE["Q3 NPN - emisor"]
+    M3R1["220 ohm L31"]
+    M3L1["LED rojo L31"]
+    M3R2["220 ohm L32"]
+    M3L2["LED rojo L32"]
+    M3R3["220 ohm L33"]
+    M3L3["LED rojo L33"]
+    N21[/"GND"\]
+    N22(["+5V"])
+    N23(["+5V"])
+    N24(["+5V"])
+  end
+  E3V3 --- N0
+  E5V --- N1
+  EGND --- N2
+  N3 --- DVCC
+  DDAT ---|"DATA"| E4
+  DGND --- N4
+  N5 --- RF33V
+  RFGND --- N6
+  RFSDA ---|"SS"| E5
+  RFSCK ---|"SCK"| E18
+  RFMISO ---|"MISO"| E19
+  RFMOSI ---|"MOSI"| E23
+  RFRST ---|"RST"| E27
+  N7 --- OVCC
+  OGND --- N8
+  OSDA ---|"SDA"| E21
+  OSCL ---|"SCL"| E22
+  BZP ---|"tono 2 kHz"| E25
+  BZN --- N9
+  N10 --- RYVCC
+  RYGND --- N11
+  RYIN ---|"IN1"| E26
+  PSUP ---|"+12V"| RYCOM
+  RYNO ---|"+12V conmutado"| LKP
+  LKN ---|"retorno 12V"| PSUN
+  DK ---|"diodo antiparalelo"| LKP
+  DA ---|"diodo antiparalelo"| LKN
+  N12 --- RGBA
+  RGBR ---|"R"| RR
+  RR ---|"PWM R"| E13
+  RGBG ---|"G"| RG
+  RG ---|"PWM G"| E14
+  RGBB ---|"B"| RB
+  RB ---|"PWM B"| E15
+  E16 ---|"fila 1"| M1RB
+  M1RB ---|"base"| M1QB
+  M1QE --- N13
+  N14 --- M1R1
+  M1R1 ---|"anodo"| M1L1
+  M1L1 ---|"catodo"| M1QC
+  N15 --- M1R2
+  M1R2 ---|"anodo"| M1L2
+  M1L2 ---|"catodo"| M1QC
+  N16 --- M1R3
+  M1R3 ---|"anodo"| M1L3
+  M1L3 ---|"catodo"| M1QC
+  E17 ---|"fila 2"| M2RB
+  M2RB ---|"base"| M2QB
+  M2QE --- N17
+  N18 --- M2R1
+  M2R1 ---|"anodo"| M2L1
+  M2L1 ---|"catodo"| M2QC
+  N19 --- M2R2
+  M2R2 ---|"anodo"| M2L2
+  M2L2 ---|"catodo"| M2QC
+  N20 --- M2R3
+  M2R3 ---|"anodo"| M2L3
+  M2L3 ---|"catodo"| M2QC
+  E2 ---|"fila 3"| M3RB
+  M3RB ---|"base"| M3QB
+  M3QE --- N21
+  N22 --- M3R1
+  M3R1 ---|"anodo"| M3L1
+  M3L1 ---|"catodo"| M3QC
+  N23 --- M3R2
+  M3R2 ---|"anodo"| M3L2
+  M3L2 ---|"catodo"| M3QC
+  N24 --- M3R3
+  M3R3 ---|"anodo"| M3L3
+  M3L3 ---|"catodo"| M3QC
+  linkStyle 0 stroke:#d62728,stroke-width:2.5px,color:#d62728
+  linkStyle 1 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 2 stroke:#222222,stroke-width:2.5px,color:#222222
+  linkStyle 3 stroke:#d62728,stroke-width:2.5px,color:#d62728
+  linkStyle 4 stroke:#9467bd,stroke-width:2.5px,color:#9467bd
+  linkStyle 5 stroke:#222222,stroke-width:2.5px,color:#222222
+  linkStyle 6 stroke:#d62728,stroke-width:2.5px,color:#d62728
+  linkStyle 7 stroke:#222222,stroke-width:2.5px,color:#222222
+  linkStyle 8 stroke:#1f77b4,stroke-width:2.5px,color:#1f77b4
+  linkStyle 9 stroke:#1f77b4,stroke-width:2.5px,color:#1f77b4
+  linkStyle 10 stroke:#1f77b4,stroke-width:2.5px,color:#1f77b4
+  linkStyle 11 stroke:#1f77b4,stroke-width:2.5px,color:#1f77b4
+  linkStyle 12 stroke:#1f77b4,stroke-width:2.5px,color:#1f77b4
+  linkStyle 13 stroke:#d62728,stroke-width:2.5px,color:#d62728
+  linkStyle 14 stroke:#222222,stroke-width:2.5px,color:#222222
+  linkStyle 15 stroke:#2ca02c,stroke-width:2.5px,color:#2ca02c
+  linkStyle 16 stroke:#2ca02c,stroke-width:2.5px,color:#2ca02c
+  linkStyle 17 stroke:#9467bd,stroke-width:2.5px,color:#9467bd
+  linkStyle 18 stroke:#222222,stroke-width:2.5px,color:#222222
+  linkStyle 19 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 20 stroke:#222222,stroke-width:2.5px,color:#222222
+  linkStyle 21 stroke:#9467bd,stroke-width:2.5px,color:#9467bd
+  linkStyle 22 stroke:#8c564b,stroke-width:2.5px,color:#8c564b
+  linkStyle 23 stroke:#8c564b,stroke-width:2.5px,color:#8c564b
+  linkStyle 24 stroke:#222222,stroke-width:2.5px,color:#222222
+  linkStyle 25 stroke:#8c564b,stroke-width:2.5px,color:#8c564b
+  linkStyle 26 stroke:#222222,stroke-width:2.5px,color:#222222
+  linkStyle 27 stroke:#d62728,stroke-width:2.5px,color:#d62728
+  linkStyle 28 stroke:#e377c2,stroke-width:2.5px,color:#e377c2
+  linkStyle 29 stroke:#e377c2,stroke-width:2.5px,color:#e377c2
+  linkStyle 30 stroke:#e377c2,stroke-width:2.5px,color:#e377c2
+  linkStyle 31 stroke:#e377c2,stroke-width:2.5px,color:#e377c2
+  linkStyle 32 stroke:#e377c2,stroke-width:2.5px,color:#e377c2
+  linkStyle 33 stroke:#e377c2,stroke-width:2.5px,color:#e377c2
+  linkStyle 34 stroke:#17becf,stroke-width:2.5px,color:#17becf
+  linkStyle 35 stroke:#17becf,stroke-width:2.5px,color:#17becf
+  linkStyle 36 stroke:#222222,stroke-width:2.5px,color:#222222
+  linkStyle 37 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 38 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 39 stroke:#17becf,stroke-width:2.5px,color:#17becf
+  linkStyle 40 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 41 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 42 stroke:#17becf,stroke-width:2.5px,color:#17becf
+  linkStyle 43 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 44 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 45 stroke:#17becf,stroke-width:2.5px,color:#17becf
+  linkStyle 46 stroke:#17becf,stroke-width:2.5px,color:#17becf
+  linkStyle 47 stroke:#17becf,stroke-width:2.5px,color:#17becf
+  linkStyle 48 stroke:#222222,stroke-width:2.5px,color:#222222
+  linkStyle 49 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 50 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 51 stroke:#17becf,stroke-width:2.5px,color:#17becf
+  linkStyle 52 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 53 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 54 stroke:#17becf,stroke-width:2.5px,color:#17becf
+  linkStyle 55 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 56 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 57 stroke:#17becf,stroke-width:2.5px,color:#17becf
+  linkStyle 58 stroke:#17becf,stroke-width:2.5px,color:#17becf
+  linkStyle 59 stroke:#17becf,stroke-width:2.5px,color:#17becf
+  linkStyle 60 stroke:#222222,stroke-width:2.5px,color:#222222
+  linkStyle 61 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 62 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 63 stroke:#17becf,stroke-width:2.5px,color:#17becf
+  linkStyle 64 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 65 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 66 stroke:#17becf,stroke-width:2.5px,color:#17becf
+  linkStyle 67 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 68 stroke:#ff7f0e,stroke-width:2.5px,color:#ff7f0e
+  linkStyle 69 stroke:#17becf,stroke-width:2.5px,color:#17becf
+  classDef esp fill:#1b2a41,color:#ffffff,stroke:#0d1520
+  classDef rail fill:#fff4d6,stroke:#b8860b,color:#222
+  classDef pin fill:#f5f7fa,stroke:#8899aa,color:#111
+  classDef part fill:#eef6ee,stroke:#5a8f5a,color:#111
+  class E3V3,E5V,EGND,E4,E5,E18,E19,E23,E27,E21,E22,E25,E26,E13,E14,E15,E16,E17,E2 esp
+  class N0,N1,N2,N3,N4,N5,N6,N7,N8,N9,N10,N11,N12,N13,N14,N15,N16,N17,N18,N19,N20,N21,N22,N23,N24,PSUP,PSUN rail
