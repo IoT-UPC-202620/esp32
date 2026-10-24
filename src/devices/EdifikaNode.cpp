@@ -35,8 +35,7 @@ EdifikaNode::EdifikaNode()
 }
 
 void EdifikaNode::begin() {
-    statusRgbLed.setColor(255, 0, 0);
-    statusRgbLed.handle(RgbLed::APPLY_COLOR_COMMAND);
+    statusRgbLed.handle(RgbLed::TURN_OFF_COMMAND);   // the RGB LED is only lit while the door is RESERVED
 
     // Startup beep: if it does not sound here, the problem is the buzzer/wiring, not the RFID
     Serial.println("Probando buzzer...");
@@ -143,8 +142,12 @@ void EdifikaNode::onDeviceTick() {
 
     PresentationFrame frame = doorPresentation.tick(millis());
 
-    statusRgbLed.setColor(frame.ledColor.red, frame.ledColor.green, frame.ledColor.blue);
-    statusRgbLed.handle(RgbLed::APPLY_COLOR_COMMAND);
+    if (frame.ledOn) {
+        statusRgbLed.setColor(frame.ledColor.red, frame.ledColor.green, frame.ledColor.blue);
+        statusRgbLed.handle(RgbLed::APPLY_COLOR_COMMAND);
+    } else if (statusRgbLed.isActive()) {
+        statusRgbLed.handle(RgbLed::TURN_OFF_COMMAND);   // off outside RESERVED
+    }
 
     if (frame.lockShouldOpen) {
         unlockDoor(frame.lockDurationInMilliseconds > 0 ? frame.lockDurationInMilliseconds : LOCK_OPEN_DURATION_IN_MILLISECONDS);

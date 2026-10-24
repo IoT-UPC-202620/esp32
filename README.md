@@ -100,13 +100,13 @@ Configuración:
   5. Las lecturas repetidas de cualquier tarjeta dentro de esa espera de 5 s se ignoran.
   6. Si llega un `access_result` tardío (después de vencer el timeout), se descarta y la cerradura no se abre.
 - **Decisión del gateway (`access_result`):**
-  - Si `result == "GRANTED"`: abre el relé durante `lockMs` (o valor por defecto), reproduce el patrón de buzzer `granted`, muestra `Acceso concedido` (o el mensaje/nombre del titular) en la OLED y enciende el LED en verde `{0,255,0}` durante 2 s (si está en modo `FREE_ACCESS`).
-  - Si `result == "DENIED"`: reproduce el patrón de buzzer `denied`, muestra `Acceso denegado` en la OLED y enciende el LED en rojo `{255,0,0}` durante 2 s (si está en modo `FREE_ACCESS`).
+  - Si `result == "GRANTED"`: abre el relé durante `lockMs` (o valor por defecto), reproduce el patrón de buzzer `granted`, muestra `Acceso concedido` (o el mensaje/nombre del titular) en la OLED (el LED RGB no cambia: solo se usa en `RESERVED`).
+  - Si `result == "DENIED"`: reproduce el patrón de buzzer `denied`, muestra `Acceso denegado` en la OLED (el LED RGB no cambia: solo se usa en `RESERVED`).
 - **LED RGB de estado y roles:**
-  - **Sin conexión:** rojo fijo `{255,0,0}` desde el arranque hasta recibir confirmación de sesión MQTT con el primer heartbeat.
-  - **Modo `FREE_ACCESS`:** blanco `{255,255,255}` en reposo; conmuta temporalmente a verde o rojo durante 2 s tras cada decisión de acceso.
+  - **Regla:** el LED RGB solo se enciende con la puerta en `RESERVED`. En cualquier otro estado (acceso libre, tras una decisión, mantenimiento o sin conexión con el broker) está **apagado**; el feedback lo dan la OLED y el buzzer.
+  - **Modo `FREE_ACCESS`:** apagado, también tras cada decisión de acceso.
   - **Modo `RESERVED`:** muestra de forma fija el color asignado a la reserva (`#00FF88`, etc.). La pantalla OLED muestra `RESERVADO`. Tras una decisión de acceso concedido o denegado, el LED mantiene el color de la reserva para preservar la identidad visual del área reservada. Un comando `rgb` solo se acepta en modo `RESERVED` (en `FREE_ACCESS` responde `FAILED "not reserved"`).
-  - **Mantenimiento:** color ámbar `{255,128,0}` (`#FF8000`). La OLED muestra el mensaje de mantenimiento y el lector ignora cualquier lectura de tarjeta.
+  - **Mantenimiento:** LED apagado, aunque la puerta esté reservada. La OLED muestra el mensaje de mantenimiento y el lector ignora cualquier lectura de tarjeta.
 - **Malla de LEDs 3x3:**
   - Fila 1: se enciende mientras la cerradura eléctrica permanece energizada.
   - Fila 2: se enciende cuando la temperatura ambiente es ≥ 28.0 °C.
@@ -208,13 +208,13 @@ ocupa ~76 % de la partición por defecto; si crece, elegir el esquema de partici
 ## Checklist de aceptación manual (con hardware)
 
 La ejecuta Jonatan con la placa física y el stack del Plan 5 levantado:
-1. **Encendido:** LED rojo al arrancar y luego blanco cuando el gateway acepta el primer heartbeat.
-2. **Tarjeta registrada y al día:** la OLED muestra `Validando...`, luego `Acceso concedido`, el LED se ilumina verde 2 s, el relé abre 5 s (`lockMs`) y la fila 1 de la malla se enciende.
-3. **Tarjeta de residente moroso:** la OLED muestra `Acceso denegado`, el LED se ilumina rojo 2 s, sin apertura de relé.
+1. **Encendido:** el LED RGB permanece apagado; el gateway marca el nodo `ACTIVE` tras el primer heartbeat.
+2. **Tarjeta registrada y al día:** la OLED muestra `Validando...`, luego `Acceso concedido`, el LED RGB sigue apagado, el relé abre 5 s (`lockMs`) y la fila 1 de la malla se enciende.
+3. **Tarjeta de residente moroso:** la OLED muestra `Acceso denegado`, el LED RGB sigue apagado, sin apertura de relé.
 4. **Reserva desde la API:** la OLED muestra `RESERVADO` y el LED adopta el color fijado para la reserva.
 5. **`PUT /led` como titular:** el color del LED cambia en menos de 3 s.
 6. **Gateway apagado y lectura de tarjeta:** a los 5 s de espera, la OLED muestra `Gateway no disponible`.
-7. **Fin de la reserva:** el LED vuelve a blanco en reposo.
+7. **Fin de la reserva:** el LED RGB se apaga.
 
 ## Diagrama del circuito
 

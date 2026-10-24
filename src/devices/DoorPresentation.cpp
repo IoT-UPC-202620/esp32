@@ -8,9 +8,6 @@
 
 namespace {
 constexpr RgbColor COLOR_WHITE{255, 255, 255};
-constexpr RgbColor COLOR_GREEN{0, 255, 0};
-constexpr RgbColor COLOR_RED{255, 0, 0};
-constexpr RgbColor COLOR_AMBER{255, 128, 0};
 } // namespace
 
 DoorPresentation::DoorPresentation(uint32_t accessResultTimeoutInMilliseconds, uint32_t decisionFeedbackInMilliseconds)
@@ -144,24 +141,10 @@ PresentationFrame DoorPresentation::tick(uint32_t nowInMilliseconds) {
     pendingBeep = false;
     pendingBeepPattern = BuzzerPattern::Off;
 
-    // LED Color logic
-    if (!brokerConnected) {
-        frame.ledColor = COLOR_RED;
-    } else if (doorPhase == DoorPhase::Maintenance) {
-        frame.ledColor = COLOR_AMBER;
-    } else if (doorPhase == DoorPhase::ShowingDecision) {
-        if (doorMode == DoorMode::Reserved) {
-            frame.ledColor = reservedColor;
-        } else {
-            frame.ledColor = lastDecisionGranted ? COLOR_GREEN : COLOR_RED;
-        }
-    } else { // Idle or WaitingDecision
-        if (doorMode == DoorMode::Reserved) {
-            frame.ledColor = reservedColor;
-        } else {
-            frame.ledColor = COLOR_WHITE;
-        }
-    }
+    // LED logic: the RGB LED is lit only while the door is RESERVED (and not in maintenance);
+    // in any other state it stays off and the OLED and buzzer carry the feedback
+    frame.ledOn = doorMode == DoorMode::Reserved && doorPhase != DoorPhase::Maintenance;
+    frame.ledColor = frame.ledOn ? reservedColor : RgbColor{0, 0, 0};
 
     // Headline logic
     if (doorPhase == DoorPhase::Maintenance) {
