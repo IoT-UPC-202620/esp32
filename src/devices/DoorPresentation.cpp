@@ -169,3 +169,7 @@ DoorMode DoorPresentation::mode() const {
 DoorPhase DoorPresentation::phase() const {
     return doorPhase;
 }
+
+RgbColor DoorPresentation::reservedLedColor() const {
+    return reservedColor;
+}

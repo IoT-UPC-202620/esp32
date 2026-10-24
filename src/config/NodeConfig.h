@@ -70,6 +70,7 @@ constexpr unsigned long SAMPLING_INTERVAL_IN_MILLISECONDS = 10;
 constexpr const char* DEVICE_ID = "esp32-acc-01";
 constexpr const char* FIRMWARE_VERSION = "v0.4.0";
 constexpr unsigned long HEARTBEAT_INTERVAL_IN_MILLISECONDS = 10000;
+constexpr unsigned long MIN_HEARTBEAT_GAP_IN_MILLISECONDS = 1000;   // heartbeat inmediato al reconectar, como maximo 1 por segundo
 constexpr unsigned long READINGS_INTERVAL_IN_MILLISECONDS = 10000;
 constexpr unsigned long ACCESS_RESULT_TIMEOUT_IN_MILLISECONDS = 5000;
 constexpr unsigned long DECISION_FEEDBACK_IN_MILLISECONDS = 2000;

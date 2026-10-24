@@ -71,6 +71,7 @@ public:
     PresentationFrame tick(uint32_t nowInMilliseconds);
 
     DoorMode mode() const;
+    RgbColor reservedLedColor() const;   // colour shown while RESERVED (reported in heartbeats)
     DoorPhase phase() const;
 };
 

@@ -47,9 +47,11 @@ class HeartbeatMessage : public NodeMessage {
 private:
     const char* deviceIdentifier; ///< Node identifier (static string).
     const char* firmwareVersion; ///< Firmware version (static string).
+    const char* doorMode; ///< `"FREE_ACCESS"` or `"RESERVED"` (static string).
+    char ledColor[8]; ///< `"#RRGGBB"` while reserved, empty otherwise (serialized as null).
 
 public:
-    HeartbeatMessage(const char* deviceId, const char* firmware);
+    HeartbeatMessage(const char* deviceId, const char* firmware, const char* currentDoorMode, const char* currentLedColor);
     void serialize(JsonDocument& serializationDestination) const override;
     [[nodiscard]] const char* getChannel() const override;
 };

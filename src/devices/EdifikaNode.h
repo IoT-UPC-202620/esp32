@@ -51,6 +51,7 @@ private:
     unsigned long lockOpenedTimestamp; ///< When the lock was last energized.
     unsigned long lockOpenDurationInMilliseconds; ///< How long the current opening lasts.
     unsigned long lastHeartbeatTimestamp; ///< When the last heartbeat was queued.
+    bool brokerSessionWasActive; ///< Broker session state on the previous tick (detects a new session).
     unsigned long lastReadingsTimestamp; ///< When periodic readings were last queued.
     unsigned long lastRenderTimestamp; ///< When the display was last refreshed.
     unsigned long temporaryMessageTimestamp; ///< When a display/alert message was started.
