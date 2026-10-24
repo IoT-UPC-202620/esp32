@@ -210,3 +210,13 @@ TEST(reserved_in_maintenance_turns_led_off) {
     auto frame = dp.tick(1000);
     ASSERT_FALSE(frame.ledOn);
 }
+
+TEST(reserved_led_color_is_reported_for_heartbeats) {
+    DoorPresentation dp(5000, 2000);
+    RgbColor purple{128, 0, 128};
+    dp.onMode(DoorMode::Reserved, true, purple);
+    RgbColor reported = dp.reservedLedColor();
+    ASSERT_EQ(128, reported.red);
+    ASSERT_EQ(0, reported.green);
+    ASSERT_EQ(128, reported.blue);
+}

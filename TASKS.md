@@ -70,3 +70,10 @@
 - Tests: `bash test/run_tests.sh` → 26 passed, 0 failed; `arduino-cli compile -b esp32:esp32:esp32` → exit 0 (77 % flash)
 - Hardware (COM5): uploaded; LED off in FREE_ACCESS; `PUT /led` returns 409 outside RESERVED; magenta `#FF0080` applied during a reservation (command OK)
 - Notas: outside RESERVED the LED is off with no exceptions (no green/red decision flash, no amber maintenance, no red without broker); in RESERVED it keeps the reservation colour even without broker, and turns off in maintenance.
+
+## Task 9 — Heartbeat reports door state for resync (requested by Jonatan, 2026-10-24)   [x] hecha
+- Rama: feature/H6-heartbeat-door-state
+- Motivo: probado con la placa: tras un reinicio corto el nodo volvía en FREE_ACCESS con el LED apagado mientras la reserva seguía activa.
+- Cambio: el heartbeat incluye `mode` y `color` (null fuera de RESERVED); se envía uno de inmediato al iniciar cada sesión MQTT (mínimo 1 s entre heartbeats). El gateway reenvía `mode` si difiere de la configuración vigente.
+- Tests: `bash test/run_tests.sh` → 28 passed, 0 failed; compile exit 0 (77 %)
+- Hardware (COM5): reserva con LED #800080 → reinicio por RTS → heartbeat FREE_ACCESS/null → el gateway envía mode RESERVED #800080 → ack OK → heartbeats RESERVED/#800080.

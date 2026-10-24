@@ -24,13 +24,20 @@ void NodeMessage::serializeEnvelope(JsonDocument& serializationDestination) {
 }
 
 // ---------------- HeartbeatMessage ----------------
-HeartbeatMessage::HeartbeatMessage(const char* deviceId, const char* firmware)
-    : deviceIdentifier(deviceId), firmwareVersion(firmware) {}
+HeartbeatMessage::HeartbeatMessage(const char* deviceId, const char* firmware, const char* currentDoorMode,
+                                   const char* currentLedColor)
+    : deviceIdentifier(deviceId), firmwareVersion(firmware), doorMode(currentDoorMode), ledColor("") {
+    if (currentLedColor != nullptr) snprintf(ledColor, sizeof(ledColor), "%s", currentLedColor);
+}
 
 void HeartbeatMessage::serialize(JsonDocument& serializationDestination) const {
     serializeEnvelope(serializationDestination);
     serializationDestination["deviceId"] = deviceIdentifier;
     serializationDestination["fw"] = firmwareVersion;
+    // What the door shows right now: the gateway re-sends `mode` when this is stale
+    serializationDestination["mode"] = doorMode;
+    if (ledColor[0] != '\0') serializationDestination["color"] = ledColor;
+    else serializationDestination["color"] = nullptr;
 }
 
 const char* HeartbeatMessage::getChannel() const { return "heartbeat"; }

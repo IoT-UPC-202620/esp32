@@ -90,6 +90,13 @@ namespace CommandParser {
      * @return True if parsing succeeded, false if format is invalid.
      */
     bool parseHexColor(const char* text, RgbColor& destination);
+
+    /**
+     * @brief Formats a color as "#RRGGBB" (uppercase), the inverse of parseHexColor.
+     * @param color Color to format.
+     * @param destination Buffer of at least 8 characters (7 plus terminator).
+     */
+    void formatHexColor(const RgbColor& color, char* destination);
 }
 
 #endif // COMMAND_PARSER_H
