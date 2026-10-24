@@ -14,17 +14,17 @@
 - Paso actual: Step 5 — Commit y merge a develop
 - Archivos tocados: src/gateway/CommandParser.h, src/gateway/CommandParser.cpp, src/gateway/EdgeMqttGatewayClient.h, src/gateway/EdgeMqttGatewayClient.cpp, test/test_command_parser.cpp, TASKS.md
 - Tests: `bash test/run_tests.sh` → 13 passed, 0 failed
-- Último commit: 4b59220 test: add host-side test harness with vendored ArduinoJson (H6)
+- Último commit: c743499 feat(gateway): parse every v1 command into a typed NodeCommand (H6)
 - Métricas: 13 host tests en verde (12 de CommandParser)
 - Bloqueos / notas: —
 
-## Task 3 — DoorPresentation: decisión, modo y LED como máquina de estados pura   [ ] pendiente
+## Task 3 — DoorPresentation: decisión, modo y LED como máquina de estados pura   [x] hecha
 - Rama: feature/H6-door-presentation
-- Paso actual: —
-- Archivos tocados: —
-- Tests: —
-- Último commit: —
-- Métricas: —
+- Paso actual: Step 5 — Commit y merge a develop
+- Archivos tocados: src/devices/DoorPresentation.h, src/devices/DoorPresentation.cpp, test/test_door_presentation.cpp, TASKS.md
+- Tests: `bash test/run_tests.sh` → 24 passed, 0 failed
+- Último commit: c743499 feat(gateway): parse every v1 command into a typed NodeCommand (H6)
+- Métricas: 24 host tests en verde (11 de DoorPresentation)
 - Bloqueos / notas: —
 
 ## Task 4 — EdifikaNode conectado al contrato   [ ] pendiente
