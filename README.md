@@ -104,6 +104,16 @@ docker exec edifika-mosquitto mosquitto_pub -t edifika/v1/nodes/esp32-acc-01/com
   -m '{"v":"1","commandId":"cmd-001","type":"unlock","params":{"duration_ms":5000}}'
 ```
 
+## Tests en el host
+
+Para correr la suite de tests unitarios puros (parseo de comandos, máquina de estados de puerta) sin depender del hardware ni de Arduino:
+
+`ash
+bash test/run_tests.sh
+`
+
+Requiere g++ (C++17) y ash en el PATH.
+
 ## Compilar
 
 Placa **ESP32 Dev Module**, core **esp32 3.x** (ModestIoT usa la API de timers de 3.x).
