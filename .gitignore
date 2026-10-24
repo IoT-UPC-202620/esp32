@@ -1,0 +1,5 @@
+.DS_Store
+build/
+test/build/
+.vscode/
+src/config/Secrets.h

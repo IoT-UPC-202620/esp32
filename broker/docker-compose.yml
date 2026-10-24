@@ -1,0 +1,23 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: edifika-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+
+  # Mosquitto no registra el contenido de los mensajes; este contenedor se suscribe a todo
+  # edifika/# y lo imprime en stdout, asi los datos del nodo se ven en `docker logs` / Docker Desktop.
+  mqtt-logger:
+    image: eclipse-mosquitto:2
+    container_name: edifika-mqtt-logger
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+    entrypoint: ["mosquitto_sub", "-h", "mosquitto", "-t", "edifika/#", "-v", "-F", "%I %t %p"]
+
+volumes:
+  mosquitto-data:
