@@ -25,6 +25,7 @@ enum class NodeCommandType : uint8_t {
     Maintenance,
     TimeSync,
     Enroll,      ///< Card enrollment mode: the next card is reported, not evaluated.
+    Identify,    ///< Blink and beep so the admin can spot the board (also before adoption).
     Unsupported,
     Invalid
 };

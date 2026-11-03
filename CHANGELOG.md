@@ -5,6 +5,11 @@ All notable changes to the Edifika ESP32 firmware are documented in this file.
 ## [Unreleased]
 
 ### Added
+- Device discovery (v0.6.0): the device id comes from the chip MAC (`esp32-xxxxxx`), so one binary serves every board; `DEVICE_ID_OVERRIDE` keeps a fixed id for boards registered before discovery.
+- The node publishes `announce` (MAC, firmware, model, detected capabilities, IP, RSSI and a 4-digit pairing code) on every broker session and, while not adopted, every minute.
+- Until the gateway sends its first `mode` the node is inert: cards are ignored, no readings are published and the OLED shows "Sin registrar" with the pairing code.
+- `identify {seconds?}` (1..60, 10 by default) blinks the RGB LED white and beeps, also before adoption.
+- Host tests for the identity, the unadopted state and `identify` (`test/test_discovery.cpp`).
 - Card enrollment mode: the `enroll` command (`{active, seconds?}`, 60 s by default, clamped to 1..300) puts the reader in `Enrolling`: cyan LED and `MODO REGISTRO` on the OLED. The next card is published on the new `enrollment` channel (never on `access`), the lock stays closed and the node shows `Tarjeta capturada`. The mode ends on its own when the window passes; it is rejected during maintenance (`ack FAILED "maintenance"`).
 - Host tests for the `enroll` command and the enrollment phase (`test/test_enrollment.cpp`).
 

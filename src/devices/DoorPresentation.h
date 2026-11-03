@@ -61,6 +61,11 @@ private:
     BuzzerPattern pendingBeepPattern;
     uint32_t enrollStartedTimestamp;
     uint32_t enrollDurationInMilliseconds;
+    bool registered;               // false until the gateway adopts the node (first `mode`)
+    char unregisteredHeadline[40]; // "Sin registrar" + "Codigo 1234" on two lines
+    bool identifying;
+    uint32_t identifyStartedTimestamp;
+    uint32_t identifyDurationInMilliseconds;
 
 public:
     DoorPresentation(uint32_t accessResultTimeoutInMilliseconds, uint32_t decisionFeedbackInMilliseconds);
@@ -77,6 +82,13 @@ public:
     // (never as an access attempt); leaves enrollment mode
     bool onEnrollmentCard(uint32_t nowInMilliseconds);
     bool isEnrolling() const;
+    // Starts unadopted: cards are ignored and the OLED shows the pairing code until the
+    // gateway sends the first `mode`, which is the node's signal that it was adopted
+    void requireRegistration(const char* pairingCode);
+    bool isRegistered() const;
+    // Blinks the RGB LED white for a while and beeps so the admin can spot the board;
+    // works whether or not the node is adopted
+    void onIdentify(uint32_t durationInMilliseconds, uint32_t nowInMilliseconds);
     PresentationFrame tick(uint32_t nowInMilliseconds);
 
     DoorMode mode() const;

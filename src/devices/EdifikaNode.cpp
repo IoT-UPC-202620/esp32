@@ -7,6 +7,7 @@
 #include "../config/Secrets.h"
 #include <time.h>
 #include <sys/time.h>
+#include <WiFi.h>
 
 using namespace NodeConfig;
 
@@ -19,12 +20,14 @@ EdifikaNode::EdifikaNode()
       climateSensor(DHT_PIN, DHT_MODEL, this),
       accessCardReader(RFID_SS_PIN, RFID_RESET_PIN, RFID_SCK_PIN, RFID_MISO_PIN, RFID_MOSI_PIN, this),
       statusDisplay(OLED_I2C_ADDRESS, OLED_WIDTH, OLED_HEIGHT),
+      identity(DEVICE_ID_OVERRIDE),
       wifiDriver(Secrets::WIFI_SSID, Secrets::WIFI_PASSWORD),
-      edgeGateway(wifiDriver, wifiDriver.getNetworkSocket(), Secrets::MQTT_BROKER_HOST, Secrets::MQTT_BROKER_PORT, DEVICE_ID),
+      edgeGateway(wifiDriver, wifiDriver.getNetworkSocket(), Secrets::MQTT_BROKER_HOST, Secrets::MQTT_BROKER_PORT, identity.deviceId()),
       doorPresentation(ACCESS_RESULT_TIMEOUT_IN_MILLISECONDS, DECISION_FEEDBACK_IN_MILLISECONDS),
       lockOpenedTimestamp(0),
       lockOpenDurationInMilliseconds(LOCK_OPEN_DURATION_IN_MILLISECONDS),
       lastHeartbeatTimestamp(0),
+      lastAnnounceTimestamp(0),
       brokerSessionWasActive(false),
       lastReadingsTimestamp(0),
       lastRenderTimestamp(0),
@@ -54,6 +57,10 @@ void EdifikaNode::begin() {
     }
     statusDisplay.setMessage("Iniciando...");
     statusDisplay.handle(OledDisplay::SHOW_MESSAGE_COMMAND);
+
+    // Every node boots unadopted: inert until the gateway answers with `mode`
+    Serial.printf("Nodo %s  MAC %s  codigo %s\n", identity.deviceId(), identity.mac(), identity.pairingCode());
+    doorPresentation.requireRegistration(identity.pairingCode());
 
     Serial.printf("Conectando a Wi-Fi \"%s\"...\n", Secrets::WIFI_SSID);
     wifiDriver.connect();                 // asynchronous; maintainNetwork() follows it up
@@ -110,6 +117,12 @@ void EdifikaNode::enqueueNodeMessage(NodeMessage* nodeMessage) const {
 void EdifikaNode::onCardDetected() {
     Serial.printf("Tarjeta: %s  (%s)\n", accessCardReader.getUid(), accessCardReader.getCardType());
 
+    // A node that is not adopted is inert: cards are neither evaluated nor reported
+    if (!doorPresentation.isRegistered()) {
+        Serial.println("Nodo sin registrar: tarjeta ignorada");
+        return;
+    }
+
     // Enrollment mode: the card is reported for registration; no access is evaluated
     // and the lock stays closed (the beep comes from the presentation frame)
     if (doorPresentation.onEnrollmentCard(millis())) {
@@ -147,7 +160,11 @@ void EdifikaNode::onClimateRead() {
 void EdifikaNode::onDeviceTick() {
     doorPresentation.onBrokerSession(edgeGateway.isSessionActive());
     processRemoteCommands();
-    updateHeartbeat();
+    bool sessionActive = edgeGateway.isSessionActive();
+    bool sessionJustStarted = sessionActive && !brokerSessionWasActive;
+    brokerSessionWasActive = sessionActive;
+    updateAnnounce(sessionActive, sessionJustStarted);
+    updateHeartbeat(sessionActive, sessionJustStarted);
     updateReadings();
     updateDoorLock();
 
@@ -187,8 +204,16 @@ void EdifikaNode::processRemoteCommands() {
                 doorPresentation.onAccessResult(cmd, millis());
                 break;
 
-            case NodeCommandType::Mode:
+            case NodeCommandType::Mode: {
+                bool wasRegistered = doorPresentation.isRegistered();
                 doorPresentation.onMode(cmd.mode, cmd.hasColor, cmd.color);
+                if (!wasRegistered) Serial.println("Nodo adoptado por el gateway");
+                break;
+            }
+
+            case NodeCommandType::Identify:
+                doorPresentation.onIdentify(cmd.durationInMilliseconds, millis());
+                Serial.println("Identificando placa");
                 break;
 
             case NodeCommandType::Rgb:
@@ -268,10 +293,24 @@ void EdifikaNode::processRemoteCommands() {
     }
 }
 
-void EdifikaNode::updateHeartbeat() {
-    bool sessionActive = edgeGateway.isSessionActive();
-    bool sessionJustStarted = sessionActive && !brokerSessionWasActive;
-    brokerSessionWasActive = sessionActive;
+void EdifikaNode::updateAnnounce(bool sessionActive, bool sessionJustStarted) {
+    if (!sessionActive) return;
+    // Always on a new broker session (the gateway answers an adopted node with `mode`),
+    // and every minute while the node is still waiting to be adopted
+    unsigned long now = millis();
+    unsigned long sinceLast = now - lastAnnounceTimestamp;
+    bool dueBySession = sessionJustStarted
+        && (lastAnnounceTimestamp == 0 || sinceLast >= MIN_HEARTBEAT_GAP_IN_MILLISECONDS);
+    bool dueByPeriod = !doorPresentation.isRegistered()
+        && (lastAnnounceTimestamp == 0 || sinceLast >= ANNOUNCE_INTERVAL_IN_MILLISECONDS);
+    if (!dueBySession && !dueByPeriod) return;
+    lastAnnounceTimestamp = now;
+    enqueueNodeMessage(new AnnounceMessage(identity.deviceId(), identity.mac(), FIRMWARE_VERSION, DEVICE_MODEL,
+                                           identity.pairingCode(), accessCardReader.isConnected(),
+                                           WiFi.localIP().toString().c_str(), WiFi.RSSI()));
+}
+
+void EdifikaNode::updateHeartbeat(bool sessionActive, bool sessionJustStarted) {
     if (!sessionActive) return;
 
     // A new broker session (boot or reconnection) reports its state at once, so the
@@ -288,12 +327,13 @@ void EdifikaNode::updateHeartbeat() {
     bool reserved = doorPresentation.mode() == DoorMode::Reserved;
     char ledColor[8] = "";
     if (reserved) CommandParser::formatHexColor(doorPresentation.reservedLedColor(), ledColor);
-    enqueueNodeMessage(new HeartbeatMessage(DEVICE_ID, FIRMWARE_VERSION,
+    enqueueNodeMessage(new HeartbeatMessage(identity.deviceId(), FIRMWARE_VERSION,
                                             reserved ? "RESERVED" : "FREE_ACCESS", ledColor));
 }
 
 void EdifikaNode::updateReadings() {
-    if (!climateAvailable || !edgeGateway.isSessionActive()) return;
+    // An unadopted node is inert: no telemetry until the gateway adopts it
+    if (!climateAvailable || !doorPresentation.isRegistered() || !edgeGateway.isSessionActive()) return;
     unsigned long now = millis();
     if (lastReadingsTimestamp != 0 && now - lastReadingsTimestamp < READINGS_INTERVAL_IN_MILLISECONDS) return;
     lastReadingsTimestamp = now;
