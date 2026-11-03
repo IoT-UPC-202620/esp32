@@ -66,9 +66,14 @@ constexpr unsigned long SPLASH_DURATION_IN_MILLISECONDS = 1500;
 constexpr unsigned long SAMPLING_INTERVAL_IN_MILLISECONDS = 10;
 
 // ---------------- Red (Wi-Fi + MQTT con el Edge Gateway) ----------------
-// Credenciales y broker en Secrets.h. Topicos: edifika/v1/nodes/{DEVICE_ID}/{canal}
-constexpr const char* DEVICE_ID = "esp32-acc-01";
-constexpr const char* FIRMWARE_VERSION = "v0.5.0";
+// Credenciales y broker en Secrets.h. Topicos: edifika/v1/nodes/{deviceId}/{canal}
+// Identidad: el deviceId sale de la MAC del chip (esp32-xxxxxx), asi un mismo firmware sirve
+// para todas las placas. Fijarlo solo para una placa registrada antes del descubrimiento.
+constexpr const char* DEVICE_ID_OVERRIDE = "";
+constexpr const char* DEVICE_MODEL = "door-node";
+constexpr const char* FIRMWARE_VERSION = "v0.6.0";
+// El nodo se anuncia al conectarse y, mientras no este adoptado, cada minuto
+constexpr unsigned long ANNOUNCE_INTERVAL_IN_MILLISECONDS = 60000;
 constexpr unsigned long HEARTBEAT_INTERVAL_IN_MILLISECONDS = 10000;
 constexpr unsigned long MIN_HEARTBEAT_GAP_IN_MILLISECONDS = 1000;   // heartbeat inmediato al reconectar, como maximo 1 por segundo
 constexpr unsigned long READINGS_INTERVAL_IN_MILLISECONDS = 10000;

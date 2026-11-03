@@ -71,6 +71,27 @@ public:
 };
 
 /**
+ * @brief `announce` channel: the node introduces itself so the gateway can identify it.
+ * Sent on every new broker session and, while not adopted, every minute.
+ */
+class AnnounceMessage : public NodeMessage {
+private:
+    const char* deviceIdentifier; ///< Node identifier (lives in NodeIdentity).
+    const char* macAddress; ///< `AA:BB:CC:DD:EE:FF` (lives in NodeIdentity).
+    const char* firmwareVersion; ///< Firmware version (static string).
+    const char* deviceModel; ///< Hardware model, e.g. `door-node` (static string).
+    const char* pairingCode; ///< Four digits shown on the OLED (lives in NodeIdentity).
+    bool rfidDetected; ///< The RC522 answered at boot.
+    char ipAddress[16]; ///< Current IPv4 address.
+    int signalStrength; ///< Wi-Fi RSSI in dBm.
+public:
+    AnnounceMessage(const char* deviceId, const char* mac, const char* firmware, const char* model,
+                    const char* code, bool rfid, const char* ip, int rssi);
+    void serialize(JsonDocument& serializationDestination) const override;
+    [[nodiscard]] const char* getChannel() const override;
+};
+
+/**
  * @brief `readings` channel: one sensor value with its unit.
  */
 /**

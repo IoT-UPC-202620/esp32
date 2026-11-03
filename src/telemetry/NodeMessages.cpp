@@ -68,6 +68,37 @@ void EnrollmentReadMessage::serialize(JsonDocument& serializationDestination) co
 
 const char* EnrollmentReadMessage::getChannel() const { return "enrollment"; }
 
+// ---------------- AnnounceMessage ----------------
+AnnounceMessage::AnnounceMessage(const char* deviceId, const char* mac, const char* firmware, const char* model,
+                                 const char* code, bool rfid, const char* ip, int rssi)
+    : deviceIdentifier(deviceId), macAddress(mac), firmwareVersion(firmware), deviceModel(model),
+      pairingCode(code), rfidDetected(rfid), ipAddress(""), signalStrength(rssi) {
+    if (ip != nullptr) snprintf(ipAddress, sizeof(ipAddress), "%s", ip);
+}
+
+void AnnounceMessage::serialize(JsonDocument& serializationDestination) const {
+    serializeEnvelope(serializationDestination);
+    serializationDestination["deviceId"] = deviceIdentifier;
+    serializationDestination["mac"] = macAddress;
+    serializationDestination["fw"] = firmwareVersion;
+    serializationDestination["model"] = deviceModel;
+    // The RC522 is detected at boot; the outputs and the DHT11 are part of the door node build
+    JsonArray capabilities = serializationDestination["capabilities"].to<JsonArray>();
+    if (rfidDetected) capabilities.add("RFID");
+    capabilities.add("LOCK");
+    capabilities.add("BUZZER");
+    capabilities.add("OLED");
+    capabilities.add("RGB_LED");
+    capabilities.add("TEMPERATURE");
+    capabilities.add("HUMIDITY");
+    if (ipAddress[0] != '\0') serializationDestination["ip"] = ipAddress;
+    else serializationDestination["ip"] = nullptr;
+    serializationDestination["rssi"] = signalStrength;
+    serializationDestination["pairingCode"] = pairingCode;
+}
+
+const char* AnnounceMessage::getChannel() const { return "announce"; }
+
 // ---------------- SensorReadingMessage ----------------
 SensorReadingMessage::SensorReadingMessage(const char* sensor, float measuredValue, const char* measureUnit)
     : sensorName(sensor), value(measuredValue), unit(measureUnit) {

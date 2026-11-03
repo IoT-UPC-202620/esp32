@@ -20,6 +20,7 @@
 #include "../telemetry/NodeMessages.h"
 #include "../config/NodeConfig.h"
 #include "DoorPresentation.h"
+#include "NodeIdentity.h"
 
 /**
  * @brief ESP32 node: RFID access with an electric lock, DHT11 climate, OLED, buzzer,
@@ -42,6 +43,7 @@ private:
     RfidReader accessCardReader; ///< RC522 access card reader.
     OledDisplay statusDisplay; ///< SSD1306 status display.
 
+    NodeIdentity identity; ///< Device id and pairing code from the chip MAC (before the MQTT client).
     WiFiStationDriver wifiDriver; ///< Wi-Fi link (ModestIoT `WiFiConnectivityDriver`).
     // processQueuedTelemetryData() is const in Device, but publishing mutates the client.
     mutable EdgeMqttGatewayClient edgeGateway; ///< MQTT link with the Edge Gateway.
@@ -51,6 +53,7 @@ private:
     unsigned long lockOpenedTimestamp; ///< When the lock was last energized.
     unsigned long lockOpenDurationInMilliseconds; ///< How long the current opening lasts.
     unsigned long lastHeartbeatTimestamp; ///< When the last heartbeat was queued.
+    unsigned long lastAnnounceTimestamp; ///< When the last announce was queued.
     bool brokerSessionWasActive; ///< Broker session state on the previous tick (detects a new session).
     unsigned long lastReadingsTimestamp; ///< When periodic readings were last queued.
     unsigned long lastRenderTimestamp; ///< When the display was last refreshed.
@@ -70,7 +73,8 @@ private:
     void updateMatrixRows();
     void updateDisplay(const PresentationFrame& frame);
     void processRemoteCommands();
-    void updateHeartbeat();
+    void updateAnnounce(bool sessionActive, bool sessionJustStarted);
+    void updateHeartbeat(bool sessionActive, bool sessionJustStarted);
     void updateReadings();
 
     /**
