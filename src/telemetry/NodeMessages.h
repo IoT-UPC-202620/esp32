@@ -73,6 +73,20 @@ public:
 /**
  * @brief `readings` channel: one sensor value with its unit.
  */
+/**
+ * @brief Card read in enrollment mode, published on `enrollment` (never on `access`):
+ * the gateway forwards it to the cloud without evaluating any access.
+ */
+class EnrollmentReadMessage : public NodeMessage {
+private:
+    static constexpr size_t CREDENTIAL_BUFFER_SIZE = 24; ///< Up to 10 UID bytes as hex.
+    char credential[CREDENTIAL_BUFFER_SIZE]; ///< Compact card UID.
+public:
+    explicit EnrollmentReadMessage(const char* compactUid);
+    void serialize(JsonDocument& serializationDestination) const override;
+    [[nodiscard]] const char* getChannel() const override;
+};
+
 class SensorReadingMessage : public NodeMessage {
 private:
     const char* sensorName; ///< Sensor kind (static string), e.g. `"humidity"`.
