@@ -2,6 +2,12 @@
 
 All notable changes to the Edifika ESP32 firmware are documented in this file.
 
+## [Unreleased]
+
+### Added
+- Card enrollment mode: the `enroll` command (`{active, seconds?}`, 60 s by default, clamped to 1..300) puts the reader in `Enrolling`: cyan LED and `MODO REGISTRO` on the OLED. The next card is published on the new `enrollment` channel (never on `access`), the lock stays closed and the node shows `Tarjeta capturada`. The mode ends on its own when the window passes; it is rejected during maintenance (`ack FAILED "maintenance"`).
+- Host tests for the `enroll` command and the enrollment phase (`test/test_enrollment.cpp`).
+
 ## [v0.5.0] - 2026-10-24 (H6)
 
 ### Added

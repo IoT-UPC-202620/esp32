@@ -55,6 +55,19 @@ void AccessAttemptMessage::serialize(JsonDocument& serializationDestination) con
 
 const char* AccessAttemptMessage::getChannel() const { return "access"; }
 
+// ---------------- EnrollmentReadMessage ----------------
+EnrollmentReadMessage::EnrollmentReadMessage(const char* compactUid) : credential("") {
+    if (compactUid != nullptr) snprintf(credential, CREDENTIAL_BUFFER_SIZE, "%s", compactUid);
+}
+
+void EnrollmentReadMessage::serialize(JsonDocument& serializationDestination) const {
+    serializeEnvelope(serializationDestination);
+    serializationDestination["credentialType"] = "RFID";
+    serializationDestination["credential"] = credential;
+}
+
+const char* EnrollmentReadMessage::getChannel() const { return "enrollment"; }
+
 // ---------------- SensorReadingMessage ----------------
 SensorReadingMessage::SensorReadingMessage(const char* sensor, float measuredValue, const char* measureUnit)
     : sensorName(sensor), value(measuredValue), unit(measureUnit) {

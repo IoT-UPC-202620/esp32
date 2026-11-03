@@ -201,6 +201,23 @@ NodeCommand parse(const uint8_t* payload, size_t length) {
         return cmd;
     }
 
+    // enroll {active: bool, seconds?: 1..300}: enter/leave card enrollment mode
+    if (strcmp(typeStr, "enroll") == 0) {
+        if (!params["active"].is<bool>()) {
+            cmd.type = NodeCommandType::Invalid;
+            strncpy(cmd.error, "missing params", sizeof(cmd.error) - 1);
+            cmd.error[sizeof(cmd.error) - 1] = '\0';
+            return cmd;
+        }
+        cmd.type = NodeCommandType::Enroll;
+        cmd.active = params["active"].as<bool>();
+        uint32_t seconds = params["seconds"] | 60u;
+        if (seconds < 1) seconds = 1;
+        if (seconds > 300) seconds = 300;
+        cmd.durationInMilliseconds = seconds * 1000u;
+        return cmd;
+    }
+
     if (strcmp(typeStr, "time_sync") == 0) {
         cmd.type = NodeCommandType::TimeSync;
         cmd.epochSeconds = params["epoch"] | 0u;

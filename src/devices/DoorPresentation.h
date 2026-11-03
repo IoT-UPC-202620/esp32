@@ -17,7 +17,8 @@ enum class DoorPhase : uint8_t {
     Idle,
     WaitingDecision,
     ShowingDecision,
-    Maintenance
+    Maintenance,
+    Enrolling    // card enrollment mode: the next card is captured, not evaluated
 };
 
 /**
@@ -58,6 +59,8 @@ private:
     uint32_t pendingLockDuration;
     bool pendingBeep;
     BuzzerPattern pendingBeepPattern;
+    uint32_t enrollStartedTimestamp;
+    uint32_t enrollDurationInMilliseconds;
 
 public:
     DoorPresentation(uint32_t accessResultTimeoutInMilliseconds, uint32_t decisionFeedbackInMilliseconds);
@@ -68,6 +71,12 @@ public:
     bool onRgb(RgbColor color);
     void onMaintenance(bool active, const char* message);
     void onBrokerSession(bool connected);
+    // Enter (active) or leave enrollment mode; false while in maintenance
+    bool onEnroll(bool active, uint32_t durationInMilliseconds, uint32_t nowInMilliseconds);
+    // A card read in enrollment mode: true if it must be reported as an enrollment
+    // (never as an access attempt); leaves enrollment mode
+    bool onEnrollmentCard(uint32_t nowInMilliseconds);
+    bool isEnrolling() const;
     PresentationFrame tick(uint32_t nowInMilliseconds);
 
     DoorMode mode() const;
