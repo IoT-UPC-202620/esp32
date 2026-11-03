@@ -110,6 +110,16 @@ void EdifikaNode::enqueueNodeMessage(NodeMessage* nodeMessage) const {
 void EdifikaNode::onCardDetected() {
     Serial.printf("Tarjeta: %s  (%s)\n", accessCardReader.getUid(), accessCardReader.getCardType());
 
+    // Enrollment mode: the card is reported for registration; no access is evaluated
+    // and the lock stays closed (the beep comes from the presentation frame)
+    if (doorPresentation.onEnrollmentCard(millis())) {
+        enqueueNodeMessage(new EnrollmentReadMessage(accessCardReader.getCompactUid()));
+        statusDisplay.setLastCardUid(accessCardReader.getCompactUid());
+        statusDisplay.setDetectedCard(accessCardReader.getUid(), accessCardReader.getCardType());
+        Serial.println("Tarjeta capturada en modo registro");
+        return;
+    }
+
     if (!doorPresentation.onCardRead(millis())) {
         return;
     }
@@ -229,6 +239,15 @@ void EdifikaNode::processRemoteCommands() {
                     tv.tv_sec = static_cast<time_t>(cmd.epochSeconds);
                     tv.tv_usec = 0;
                     settimeofday(&tv, nullptr);
+                }
+                break;
+
+            case NodeCommandType::Enroll:
+                if (!doorPresentation.onEnroll(cmd.active, cmd.durationInMilliseconds, millis())) {
+                    ackStatus = "FAILED";
+                    ackDetail = "maintenance";
+                } else {
+                    Serial.println(cmd.active ? "Modo registro activado" : "Modo registro desactivado");
                 }
                 break;
 
