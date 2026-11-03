@@ -8,6 +8,7 @@
 
 namespace {
 constexpr RgbColor COLOR_WHITE{255, 255, 255};
+constexpr RgbColor COLOR_ENROLLMENT{0, 180, 255};   // cyan: distinct from any reservation colour
 } // namespace
 
 DoorPresentation::DoorPresentation(uint32_t accessResultTimeoutInMilliseconds, uint32_t decisionFeedbackInMilliseconds)
@@ -23,7 +24,9 @@ DoorPresentation::DoorPresentation(uint32_t accessResultTimeoutInMilliseconds, u
       pendingLockOpen(false),
       pendingLockDuration(0),
       pendingBeep(false),
-      pendingBeepPattern(BuzzerPattern::Off)
+      pendingBeepPattern(BuzzerPattern::Off),
+      enrollStartedTimestamp(0),
+      enrollDurationInMilliseconds(0)
 {
     customHeadline[0] = '\0';
     maintenanceMessage[0] = '\0';
@@ -110,6 +113,41 @@ void DoorPresentation::onBrokerSession(bool connected) {
     brokerConnected = connected;
 }
 
+bool DoorPresentation::onEnroll(bool active, uint32_t durationInMilliseconds, uint32_t nowInMilliseconds) {
+    if (doorPhase == DoorPhase::Maintenance) {
+        return false;
+    }
+    if (active) {
+        doorPhase = DoorPhase::Enrolling;
+        enrollStartedTimestamp = nowInMilliseconds;
+        enrollDurationInMilliseconds = durationInMilliseconds;
+    } else if (doorPhase == DoorPhase::Enrolling) {
+        doorPhase = DoorPhase::Idle;
+    }
+    return true;
+}
+
+bool DoorPresentation::onEnrollmentCard(uint32_t nowInMilliseconds) {
+    if (doorPhase != DoorPhase::Enrolling) {
+        return false;
+    }
+    // Feedback reuses the decision phase, but the lock never opens
+    doorPhase = DoorPhase::ShowingDecision;
+    decisionStartedTimestamp = nowInMilliseconds;
+    lastDecisionGranted = false;
+    pendingLockOpen = false;
+    pendingLockDuration = 0;
+    pendingBeep = true;
+    pendingBeepPattern = BuzzerPattern::Granted;
+    strncpy(customHeadline, "Tarjeta capturada", sizeof(customHeadline) - 1);
+    customHeadline[sizeof(customHeadline) - 1] = '\0';
+    return true;
+}
+
+bool DoorPresentation::isEnrolling() const {
+    return doorPhase == DoorPhase::Enrolling;
+}
+
 PresentationFrame DoorPresentation::tick(uint32_t nowInMilliseconds) {
     if (doorPhase == DoorPhase::WaitingDecision) {
         if (nowInMilliseconds - waitStartedTimestamp >= accessResultTimeoutInMilliseconds) {
@@ -125,6 +163,11 @@ PresentationFrame DoorPresentation::tick(uint32_t nowInMilliseconds) {
         }
     } else if (doorPhase == DoorPhase::ShowingDecision) {
         if (nowInMilliseconds - decisionStartedTimestamp >= decisionFeedbackInMilliseconds) {
+            doorPhase = DoorPhase::Idle;
+        }
+    } else if (doorPhase == DoorPhase::Enrolling) {
+        // The window ends on the node too, even if the cancel never arrives
+        if (nowInMilliseconds - enrollStartedTimestamp >= enrollDurationInMilliseconds) {
             doorPhase = DoorPhase::Idle;
         }
     }
@@ -143,12 +186,20 @@ PresentationFrame DoorPresentation::tick(uint32_t nowInMilliseconds) {
 
     // LED logic: the RGB LED is lit only while the door is RESERVED (and not in maintenance);
     // in any other state it stays off and the OLED and buzzer carry the feedback
-    frame.ledOn = doorMode == DoorMode::Reserved && doorPhase != DoorPhase::Maintenance;
-    frame.ledColor = frame.ledOn ? reservedColor : RgbColor{0, 0, 0};
+    // Exception: enrollment mode lights it cyan so the admin sees which reader is listening
+    if (doorPhase == DoorPhase::Enrolling) {
+        frame.ledOn = true;
+        frame.ledColor = COLOR_ENROLLMENT;
+    } else {
+        frame.ledOn = doorMode == DoorMode::Reserved && doorPhase != DoorPhase::Maintenance;
+        frame.ledColor = frame.ledOn ? reservedColor : RgbColor{0, 0, 0};
+    }
 
     // Headline logic
     if (doorPhase == DoorPhase::Maintenance) {
         frame.headline = maintenanceMessage;
+    } else if (doorPhase == DoorPhase::Enrolling) {
+        frame.headline = "MODO REGISTRO";
     } else if (doorPhase == DoorPhase::WaitingDecision || doorPhase == DoorPhase::ShowingDecision) {
         frame.headline = customHeadline;
     } else { // Idle
