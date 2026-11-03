@@ -218,6 +218,16 @@ NodeCommand parse(const uint8_t* payload, size_t length) {
         return cmd;
     }
 
+    // identify {seconds?: 1..60}: blink and beep so the admin can spot the board
+    if (strcmp(typeStr, "identify") == 0) {
+        cmd.type = NodeCommandType::Identify;
+        uint32_t seconds = params["seconds"] | 10u;
+        if (seconds < 1) seconds = 1;
+        if (seconds > 60) seconds = 60;
+        cmd.durationInMilliseconds = seconds * 1000u;
+        return cmd;
+    }
+
     if (strcmp(typeStr, "time_sync") == 0) {
         cmd.type = NodeCommandType::TimeSync;
         cmd.epochSeconds = params["epoch"] | 0u;
