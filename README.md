@@ -36,6 +36,9 @@ firmware/
 | Relé de la cerradura (GPIO26, activo en bajo) | `Relay : Actuator` | nuevo, sobre la clase abstracta |
 | LED RGB (GPIO13, 14, 15, ánodo común) | `RgbLed : Actuator` | nuevo, sobre la clase abstracta |
 | OLED SSD1306 (I2C 0x3C) | `OledDisplay : Actuator` | nuevo, mismo patrón que `CharacterLcdDisplay` |
+| Ultrasónico HC-SR04 (TRIG 32, ECHO 34 por divisor 1k/2k) | `UltrasonicSensor` | ModestIoT |
+| 3 LEDs blancos en paralelo (GPIO33 → 1k → BC548, 100 Ω por LED a 5V) | `DimmableLed : Actuator` | nuevo, fade por hardware con `ledcFade` |
+| Luz de presencia (umbral, lecturas seguidas, tiempo encendida) | `PresenceLight` | nuevo, lógica de estado pura |
 | Presentación y roles de puerta | `DoorPresentation` | nuevo, lógica de estado pura |
 | Nodo completo | `EdifikaNode : Device` | nuevo |
 

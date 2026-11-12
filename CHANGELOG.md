@@ -5,6 +5,12 @@ All notable changes to the Edifika ESP32 firmware are documented in this file.
 ## [Unreleased]
 
 ### Added
+- Presence lights: an HC-SR04 (TRIG GPIO32, ECHO GPIO34 through a 1k/2k divider) turns on three white LEDs in parallel, switched by a BC548 on GPIO33. They turn on after 3 consecutive readings under 80 cm, stay on 10 s after the last detection and fade in and out in hardware with `ledcFade` (`DimmableLed`). They work even before the node is adopted.
+- Host tests for the presence logic (`test/test_presence_light.cpp`).
+- Startup flash of the presence lights (wiring check) and `PRESENCE_DEBUG_LOG`, which prints the last distance every second.
+
+### Changed
+- The OLED dashboard shows the HC-SR04 distance (cm) and the presence lights state (ON/OFF) instead of the last card UID. The "TARJETA DETECTADA" screen still appears when a card is read.
 - Device discovery (v0.6.0): the device id comes from the chip MAC (`esp32-xxxxxx`), so one binary serves every board; `DEVICE_ID_OVERRIDE` keeps a fixed id for boards registered before discovery.
 - The node publishes `announce` (MAC, firmware, model, detected capabilities, IP, RSSI and a 4-digit pairing code) on every broker session and, while not adopted, every minute.
 - Until the gateway sends its first `mode` the node is inert: cards are ignored, no readings are published and the OLED shows "Sin registrar" with the pairing code.
