@@ -11,20 +11,24 @@
 #include "../ModestIoT/DhtSensor.h"
 #include "../ModestIoT/Buzzer.h"
 #include "../ModestIoT/Led.h"
+#include "../ModestIoT/UltrasonicSensor.h"
 #include "../sensors/RfidReader.h"
 #include "../actuators/Relay.h"
 #include "../actuators/RgbLed.h"
 #include "../actuators/OledDisplay.h"
+#include "../actuators/DimmableLed.h"
 #include "../connectivity/WiFiStationDriver.h"
 #include "../gateway/EdgeMqttGatewayClient.h"
 #include "../telemetry/NodeMessages.h"
 #include "../config/NodeConfig.h"
 #include "DoorPresentation.h"
 #include "NodeIdentity.h"
+#include "PresenceLight.h"
 
 /**
  * @brief ESP32 node: RFID access with an electric lock, DHT11 climate, OLED, buzzer,
- *        status RGB LED and a 3x3 LED matrix driven row by row.
+ *        status RGB LED, a 3x3 LED matrix driven row by row and white presence lights
+ *        switched on by an HC-SR04.
  * @ingroup core_module
  *
  * Sensors are polled by the `Device` round-robin scheduler and propagate their events to
@@ -39,8 +43,10 @@ private:
     Buzzer buzzer; ///< Passive buzzer for audible feedback.
     RgbLed statusRgbLed; ///< Status RGB LED driven by DoorPresentation.
     Led matrixRowLeds[NodeConfig::MATRIX_ROW_COUNT]; ///< One NPN-switched row of the 3x3 matrix each.
+    DimmableLed presenceLights; ///< Three white LEDs in parallel, switched by an NPN, with LEDC fades.
     DhtSensor climateSensor; ///< DHT11 temperature and humidity sensor.
     RfidReader accessCardReader; ///< RC522 access card reader.
+    UltrasonicSensor presenceSensor; ///< HC-SR04 that switches the presence lights on.
     OledDisplay statusDisplay; ///< SSD1306 status display.
 
     NodeIdentity identity; ///< Device id and pairing code from the chip MAC (before the MQTT client).
@@ -49,6 +55,7 @@ private:
     mutable EdgeMqttGatewayClient edgeGateway; ///< MQTT link with the Edge Gateway.
 
     DoorPresentation doorPresentation; ///< Pure state machine for decision, mode and LED.
+    PresenceLight presenceLight; ///< Pure state machine for the presence lights.
 
     unsigned long lockOpenedTimestamp; ///< When the lock was last energized.
     unsigned long lockOpenDurationInMilliseconds; ///< How long the current opening lasts.
@@ -61,9 +68,12 @@ private:
     bool temporaryMessageActive; ///< `true` while a display/alert message is active.
     char temporaryMessageText[65]; ///< Content of the display/alert message.
     bool climateAvailable; ///< `false` until the first DHT reading arrives.
+    unsigned long lastPresenceLogTimestamp; ///< When the distance was last printed (debug).
+    uint32_t distanceReadingsSinceLog; ///< Distance events received since the last debug print.
 
     void onCardDetected();
     void onClimateRead();
+    void onDistanceRead();
     void onDeviceTick();
 
     void unlockDoor(unsigned long durationInMilliseconds = 0);
@@ -71,6 +81,7 @@ private:
     void playBuzzerPattern(BuzzerPattern pattern);
     void updateDoorLock();
     void updateMatrixRows();
+    void updatePresenceLights();
     void updateDisplay(const PresentationFrame& frame);
     void processRemoteCommands();
     void updateAnnounce(bool sessionActive, bool sessionJustStarted);

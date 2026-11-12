@@ -17,7 +17,8 @@ OledDisplay::OledDisplay(uint8_t i2cAddress, uint8_t widthInPixels, uint8_t heig
       bufferedTemperatureInCelsius(0.0f),
       bufferedRelativeHumidityInPercentage(0.0f),
       climateAvailable(false),
-      bufferedLastCardUid("---"),
+      bufferedDistanceInCentimeters(-1.0f),
+      bufferedPresenceLightsOn(false),
       bufferedCardUid(""),
       bufferedCardType("")
 {
@@ -84,10 +85,21 @@ void OledDisplay::renderDashboardScreen() {
     physicalOledScreen.drawLine(0, 32, screenWidth - 1, 32, SSD1306_WHITE);
 
     physicalOledScreen.setTextSize(1);
-    physicalOledScreen.setCursor(0, 38);
-    physicalOledScreen.print("ULTIMA TARJETA");
-    physicalOledScreen.setCursor(0, 50);
-    physicalOledScreen.print(bufferedLastCardUid);
+    physicalOledScreen.setCursor(0, 38);   physicalOledScreen.print("DISTANCIA");
+    physicalOledScreen.setCursor(96, 38);  physicalOledScreen.print("LUZ");
+
+    physicalOledScreen.setTextSize(2);
+    physicalOledScreen.setCursor(0, 48);
+    if (bufferedDistanceInCentimeters > 0.0f) {
+        physicalOledScreen.print(bufferedDistanceInCentimeters, 0);
+        physicalOledScreen.print("cm");
+    } else {
+        physicalOledScreen.print("--");   // no echo received yet
+    }
+
+    physicalOledScreen.setTextSize(1);
+    physicalOledScreen.setCursor(96, 52);
+    physicalOledScreen.print(bufferedPresenceLightsOn ? "ON" : "OFF");
 
     physicalOledScreen.display();
 }
@@ -143,9 +155,9 @@ void OledDisplay::setClimate(float temperatureInCelsius, float relativeHumidityI
     climateAvailable = true;
 }
 
-void OledDisplay::setLastCardUid(const char* compactUid) {
-    if (compactUid == nullptr) return;
-    snprintf(bufferedLastCardUid, TEXT_BUFFER_SIZE, "%s", compactUid);
+void OledDisplay::setPresence(float distanceInCentimeters, bool presenceLightsOn) {
+    bufferedDistanceInCentimeters = distanceInCentimeters;
+    bufferedPresenceLightsOn = presenceLightsOn;
 }
 
 void OledDisplay::setDetectedCard(const char* spacedUid, const char* cardType) {

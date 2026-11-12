@@ -56,13 +56,31 @@ constexpr unsigned long RGB_STEP_IN_MILLISECONDS = 10;   // 510 pasos x 10 ms = 
 constexpr uint8_t MATRIX_ROW_COUNT = 3;
 constexpr int MATRIX_ROW_PINS[MATRIX_ROW_COUNT] = {16, 17, 2};   // GPIO2 tambien enciende el LED azul de la placa
 
+// ---------------- Luz de presencia: HC-SR04 + 3 LEDs blancos ----------------
+// HC-SR04 a 5V. ECHO sale a 5V: entra al GPIO34 por un divisor 1k (arriba) / 2k (abajo).
+// Los 3 LEDs van en paralelo desde 5V (100 ohm cada uno) y los conmuta un BC548:
+// GPIO33 -> 1k -> base, emisor a GND. Duty > 0 = LEDs encendidos.
+constexpr int ULTRASONIC_TRIGGER_PIN = 32;
+constexpr int ULTRASONIC_ECHO_PIN = 34;      // solo entrada, sirve para el ECHO
+constexpr int PRESENCE_LIGHT_PIN = 33;
+constexpr float PRESENCE_DISTANCE_IN_CENTIMETERS = 80.0f;        // mas cerca que esto = hay alguien
+constexpr uint8_t PRESENCE_REQUIRED_HITS = 3;                    // lecturas seguidas para encender (filtra falsos)
+constexpr unsigned long PRESENCE_HOLD_IN_MILLISECONDS = 10000;   // sigue encendida tras la ultima deteccion
+constexpr uint8_t PRESENCE_LIGHT_BRIGHTNESS = 255;               // 0-255
+constexpr uint32_t PRESENCE_FADE_IN_IN_MILLISECONDS = 400;
+constexpr uint32_t PRESENCE_FADE_OUT_IN_MILLISECONDS = 1500;
+constexpr uint32_t PRESENCE_PWM_FREQUENCY_IN_HERTZ = 5000;
+// true: imprime por serie la ultima distancia medida cada segundo (para calibrar el umbral)
+constexpr bool PRESENCE_DEBUG_LOG = true;
+constexpr unsigned long PRESENCE_DEBUG_LOG_INTERVAL_IN_MILLISECONDS = 1000;
+
 // ---------------- Pantalla y planificador ----------------
 constexpr unsigned long CARD_SCREEN_DURATION_IN_MILLISECONDS = 3000;
 constexpr unsigned long DISPLAY_REFRESH_IN_MILLISECONDS = 500;
 constexpr unsigned long SPLASH_DURATION_IN_MILLISECONDS = 1500;
 
 // Periodo del timer de Device. Cada tick atiende un slot en round-robin,
-// con 3 slots (RFID, reloj del nodo, DHT) cada uno se atiende cada 30 ms.
+// con 4 slots (RFID, reloj del nodo, DHT, ultrasonico) cada uno se atiende cada 40 ms.
 constexpr unsigned long SAMPLING_INTERVAL_IN_MILLISECONDS = 10;
 
 // ---------------- Red (Wi-Fi + MQTT con el Edge Gateway) ----------------

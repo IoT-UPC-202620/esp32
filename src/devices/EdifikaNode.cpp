@@ -17,13 +17,17 @@ EdifikaNode::EdifikaNode()
       buzzer(BUZZER_PIN),
       statusRgbLed(RGB_RED_PIN, RGB_GREEN_PIN, RGB_BLUE_PIN, RGB_COMMON_ANODE, RGB_PWM_FREQUENCY_IN_HERTZ),
       matrixRowLeds{Led(MATRIX_ROW_PINS[0]), Led(MATRIX_ROW_PINS[1]), Led(MATRIX_ROW_PINS[2])},
+      presenceLights(PRESENCE_LIGHT_PIN, PRESENCE_LIGHT_BRIGHTNESS, PRESENCE_FADE_IN_IN_MILLISECONDS,
+                     PRESENCE_FADE_OUT_IN_MILLISECONDS, PRESENCE_PWM_FREQUENCY_IN_HERTZ),
       climateSensor(DHT_PIN, DHT_MODEL, this),
       accessCardReader(RFID_SS_PIN, RFID_RESET_PIN, RFID_SCK_PIN, RFID_MISO_PIN, RFID_MOSI_PIN, this),
+      presenceSensor(ULTRASONIC_TRIGGER_PIN, ULTRASONIC_ECHO_PIN, this),
       statusDisplay(OLED_I2C_ADDRESS, OLED_WIDTH, OLED_HEIGHT),
       identity(DEVICE_ID_OVERRIDE),
       wifiDriver(Secrets::WIFI_SSID, Secrets::WIFI_PASSWORD),
       edgeGateway(wifiDriver, wifiDriver.getNetworkSocket(), Secrets::MQTT_BROKER_HOST, Secrets::MQTT_BROKER_PORT, identity.deviceId()),
       doorPresentation(ACCESS_RESULT_TIMEOUT_IN_MILLISECONDS, DECISION_FEEDBACK_IN_MILLISECONDS),
+      presenceLight(PRESENCE_DISTANCE_IN_CENTIMETERS, PRESENCE_REQUIRED_HITS, PRESENCE_HOLD_IN_MILLISECONDS),
       lockOpenedTimestamp(0),
       lockOpenDurationInMilliseconds(LOCK_OPEN_DURATION_IN_MILLISECONDS),
       lastHeartbeatTimestamp(0),
@@ -33,7 +37,9 @@ EdifikaNode::EdifikaNode()
       lastRenderTimestamp(0),
       temporaryMessageTimestamp(0),
       temporaryMessageActive(false),
-      climateAvailable(false)
+      climateAvailable(false),
+      lastPresenceLogTimestamp(0),
+      distanceReadingsSinceLog(0)
 {
     temporaryMessageText[0] = '\0';
 }
@@ -44,6 +50,14 @@ void EdifikaNode::begin() {
     // Startup beep: if it does not sound here, the problem is the buzzer/wiring, not the RFID
     Serial.println("Probando buzzer...");
     beep(STARTUP_BEEP_DURATION_IN_MILLISECONDS);
+
+    // Startup flash: if the white LEDs do not light here, the problem is the NPN/LED wiring, not the HC-SR04
+    Serial.println("Probando luces de presencia...");
+    presenceLights.handle(DimmableLed::FADE_IN_COMMAND);
+    presenceLights.update(millis());
+    delay(PRESENCE_FADE_IN_IN_MILLISECONDS + 600);
+    presenceLights.handle(DimmableLed::FADE_OUT_COMMAND);
+    presenceLights.update(millis());
 
     if (accessCardReader.isConnected()) {
         Serial.printf("RC522 listo (version 0x%02X)\n", accessCardReader.getFirmwareVersion());
@@ -70,6 +84,7 @@ void EdifikaNode::begin() {
     appendSensorToScheduler(&accessCardReader, Sensor::MEASURE_DATA_REQUESTED_EVENT_IDENTIFIER);
     appendSensorToScheduler(this, DEVICE_TICK_EVENT_IDENTIFIER);
     appendSensorToScheduler(&climateSensor, Sensor::MEASURE_DATA_REQUESTED_EVENT_IDENTIFIER);
+    appendSensorToScheduler(&presenceSensor, Sensor::MEASURE_DATA_REQUESTED_EVENT_IDENTIFIER);
     initializeAsynchronousEngine();
 }
 
@@ -78,8 +93,13 @@ void EdifikaNode::on(Event event) {
         case RfidReader::CARD_DETECTED_EVENT_IDENTIFIER:
             onCardDetected();
             break;
-        case Sensor::DATA_READ_EVENT_IDENTIFIER:   // only the DHT emits DATA_READ in this node
-            onClimateRead();
+        case Sensor::DATA_READ_EVENT_IDENTIFIER:
+            // The DHT and the HC-SR04 share DATA_READ; the ultrasonic one carries its trigger pin
+            if (event.sourceId == ULTRASONIC_TRIGGER_PIN) {
+                onDistanceRead();
+            } else {
+                onClimateRead();
+            }
             break;
         case DEVICE_TICK_EVENT_IDENTIFIER:
             onDeviceTick();
@@ -127,7 +147,6 @@ void EdifikaNode::onCardDetected() {
     // and the lock stays closed (the beep comes from the presentation frame)
     if (doorPresentation.onEnrollmentCard(millis())) {
         enqueueNodeMessage(new EnrollmentReadMessage(accessCardReader.getCompactUid()));
-        statusDisplay.setLastCardUid(accessCardReader.getCompactUid());
         statusDisplay.setDetectedCard(accessCardReader.getUid(), accessCardReader.getCardType());
         Serial.println("Tarjeta capturada en modo registro");
         return;
@@ -143,7 +162,6 @@ void EdifikaNode::onCardDetected() {
         unlockDoor(LOCK_OPEN_DURATION_IN_MILLISECONDS);
     }
 
-    statusDisplay.setLastCardUid(accessCardReader.getCompactUid());
     statusDisplay.setDetectedCard(accessCardReader.getUid(), accessCardReader.getCardType());
     statusDisplay.setHeadline("Validando...");
     statusDisplay.handle(OledDisplay::SHOW_HEADLINE_COMMAND);
@@ -155,6 +173,16 @@ void EdifikaNode::onClimateRead() {
     float humidity = climateSensor.getRelativeHumidityInPercentage();
     statusDisplay.setClimate(temperature, humidity);
     Serial.printf("T=%.1f C  H=%.0f %%\n", temperature, humidity);
+}
+
+// Presence lights work even before adoption: they are plain lighting, not access control
+void EdifikaNode::onDistanceRead() {
+    distanceReadingsSinceLog++;
+    bool wasOn = presenceLight.isOn();
+    presenceLight.onDistance(presenceSensor.getDistanceInCentimeters(), millis());
+    if (!wasOn && presenceLight.isOn()) {
+        Serial.printf("Presencia a %.0f cm: luces encendidas\n", presenceSensor.getDistanceInCentimeters());
+    }
 }
 
 void EdifikaNode::onDeviceTick() {
@@ -186,6 +214,7 @@ void EdifikaNode::onDeviceTick() {
     }
 
     updateMatrixRows();
+    updatePresenceLights();
     updateDisplay(frame);
 }
 
@@ -396,6 +425,28 @@ void EdifikaNode::updateMatrixRows() {
     switchLed(matrixRowLeds[0], doorLockRelay.isEnergized());   // row 1: lock open
     switchLed(matrixRowLeds[1], hot);                           // row 2: high temperature
     switchLed(matrixRowLeds[2], humid);                         // row 3: high humidity
+}
+
+// ---------------- presence lights ----------------
+void EdifikaNode::updatePresenceLights() {
+    unsigned long now = millis();
+    bool turnOn = presenceLight.tick(now);
+    if (presenceLights.isActive() != turnOn) {
+        presenceLights.handle(turnOn ? DimmableLed::FADE_IN_COMMAND : DimmableLed::FADE_OUT_COMMAND);
+        if (!turnOn) Serial.println("Sin presencia: luces apagadas");
+    }
+    presenceLights.update(now);
+    statusDisplay.setPresence(presenceSensor.getDistanceInCentimeters(), turnOn);   // shown on the next dashboard refresh
+
+    if (PRESENCE_DEBUG_LOG && now - lastPresenceLogTimestamp >= PRESENCE_DEBUG_LOG_INTERVAL_IN_MILLISECONDS) {
+        lastPresenceLogTimestamp = now;
+        // -1 cm and 0 readings = no echo ever received (check TRIG/ECHO/5V/divider)
+        Serial.printf("Ultrasonico: %.1f cm, %lu lecturas nuevas en 1 s, luces %s\n",
+                      presenceSensor.getDistanceInCentimeters(),
+                      static_cast<unsigned long>(distanceReadingsSinceLog),
+                      turnOn ? "ON" : "OFF");
+        distanceReadingsSinceLog = 0;
+    }
 }
 
 void EdifikaNode::switchLed(Led& led, bool turnOn) {

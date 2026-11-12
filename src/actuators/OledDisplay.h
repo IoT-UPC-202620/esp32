@@ -38,13 +38,14 @@ private:
     float bufferedTemperatureInCelsius; ///< Temperature for the dashboard screen.
     float bufferedRelativeHumidityInPercentage; ///< Humidity for the dashboard screen.
     bool climateAvailable; ///< `false` until the first climate reading is staged.
-    char bufferedLastCardUid[TEXT_BUFFER_SIZE]; ///< Compact UID shown on the dashboard.
+    float bufferedDistanceInCentimeters; ///< Last HC-SR04 distance shown on the dashboard (-1 = no echo yet).
+    bool bufferedPresenceLightsOn; ///< Presence lights state shown on the dashboard.
     char bufferedCardUid[TEXT_BUFFER_SIZE]; ///< Spaced UID shown on the card screen.
     char bufferedCardType[TEXT_BUFFER_SIZE]; ///< PICC type shown on the card screen.
 
     void renderMessageScreen(); ///< Draws the centered message screen.
     void renderHeadlineScreen(); ///< Draws the status headline screen.
-    void renderDashboardScreen(); ///< Draws temperature, humidity and last card.
+    void renderDashboardScreen(); ///< Draws temperature, humidity, distance and presence lights.
     void renderCardScreen(); ///< Draws the detected card UID and type.
 
 protected:
@@ -83,8 +84,8 @@ public:
     void setHeadline(const char* nullTerminatedString);
     /** @brief Stages the climate values shown by `SHOW_DASHBOARD_COMMAND`. */
     void setClimate(float temperatureInCelsius, float relativeHumidityInPercentage);
-    /** @brief Stages the last card UID shown by `SHOW_DASHBOARD_COMMAND`. */
-    void setLastCardUid(const char* compactUid);
+    /** @brief Stages the distance and presence lights state shown by `SHOW_DASHBOARD_COMMAND`. */
+    void setPresence(float distanceInCentimeters, bool presenceLightsOn);
     /** @brief Stages the card shown by `SHOW_CARD_COMMAND`. */
     void setDetectedCard(const char* spacedUid, const char* cardType);
 
